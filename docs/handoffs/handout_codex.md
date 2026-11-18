@@ -1,6 +1,6 @@
 # Studentity — current Codex handoff
 
-Updated 2026-11-18. Work directly in this checkout on **master**, baseline ca22296.
+Updated 2026-11-18. Work directly in this checkout on **master**, checkpoint 4139b48 (owner-requested commit).
 This is the only maintained handoff; keep it short and replace completed execution
 detail with results/evidence links. Do not create competing roadmaps or branches.
 
@@ -16,9 +16,10 @@ Activation decision and original P0–P5 design are in its activation-readiness 
 - Preserve SRS v1.1, Blueprint and accepted architecture documents. Consult both
   ../Documentations/ and ../Studentity_M0_Laravel_MongoDB_Approved_v1.0/ when referencing
   requirements; final SRS and approved ADR-01/02/invariants govern implementation.
-- Preserve the entire untracked app/Domain/Identity/ and modified
+- Preserve the committed app/Domain/Identity/ and protected
   tests/Feature/M0MongoLiveIntegrationTest.php: no edits/reset/stash/staging/commit
-  without explicit permission. New domain code uses unprotected sibling folders.
+  without explicit permission. Owner authorized committing their exact existing bytes on
+  2026-11-18; no content edits are authorized. New code uses sibling folders.
 - Protected SHA256: M0 test =
   5D54B0911AB0CCE2BD8D5EE6F4CE980A9BE7539BFE531DE5A2A0EC2281BC19A0;
   Identity/UserKind.php =
@@ -35,8 +36,8 @@ Laravel 13.42.0, Tinker 3.1.0, Sanctum 4.4.0, PHPUnit 12.5.44; official MongoDB
 Laravel 5.12/library 2.5.1/extension 2.5.7; local MongoDB 8.3.7 rs0 PRIMARY.
 Node 24.13 / npm 11.6 / Vite 7.3.8. No dependency change is planned.
 
-Last full suite: **358 tests / 3,219 assertions**, no failures/skips. Evidence:
-storage/app/private/registration-activation-contracts-2026-11-18/full-tests-final.log.
+Last full suite: **406 tests / 3,348 assertions**, no failures/skips. Evidence:
+storage/app/private/registration-durable-2026-11-18/full-tests-final.log.
 Current runtime: unavailable security authority, file/JSON sessions, encryption=false,
 Eloquent AuthenticatedUser identity lookup, sync queue. No real login/registration or
 business API is exposed. Native encrypted/fenced HTTP/process/receipt/recovery proofs
@@ -56,8 +57,8 @@ approved v1 provenance and rejects unknown representation; blocks_feature is STR
 P1 is authority-first; local allocation projections never authorize issuance/reuse.
 P2 binds immutable intent, exact notice versions/hashes, recipient/purpose and keyed
 OTP; atomic expiry/attempt/consume proofs use fixed local testing-only backends.
-No durable issuer, official ID format, persisted registration intent, delivery/global
-throttle, public route, session issuance or challenge-restore protection exists yet.
+No real durable issuer, official ID format, production intent store/delivery/global
+throttle, public route, session issuance or independent challenge-restore protection exists.
 
 Evidence: storage/app/private/governance-identity-registration-2026-11-18/ contains
 full-tests-final.log (301 / 3,137, 62.932s), 20 scoped tests/109 assertions, Pint,
@@ -66,63 +67,68 @@ fixed with red/green and restored-source mutation checks; minor follow-ups remai
 below. The extra testing DB has allocations_v1/registration_challenges_v1, strict
 closed validators and no TTL; never repoint these helpers into accepted application DBs.
 
-## IAM-01 proposal and completed contract slice
+## IAM-01 isolated durable registration foundation
 
-Review-only artifact: [schema/protocol proposal](../../database/mongodb/proposals/iam01_registration_v1.json).
-Four strict/error/no-TTL collections are proposed: registration_intents_v1,
-registration_challenges_v1, registration_activations_v1, system_id_allocations_v1.
-They are not loaded by migration/boot. Accepted auth_challenges stays unchanged.
-Read-only $documents/$match proof: 47 cases (13 accepted/34 rejected), inventory
-unchanged; shape proof does not establish concurrency or cryptographic trust.
-Design evidence: storage/app/private/iam01-registration-design-2026-11-18/.
+Spec: [schema/protocol proposal](../../database/mongodb/proposals/iam01_registration_v1.json).
+Four strict/error/no-TTL collections: registration_intents_v1, registration_challenges_v1,
+registration_activations_v1, system_id_allocations_v1. Accepted catalogue/migrations are
+unchanged. Original read-only schema proof: 47 cases (13 accepted/34 rejected), under
+storage/app/private/iam01-registration-design-2026-11-18/.
+Contract step completed previously: closed claim/reservation/command/decision, configured
+proof verification, query-bound lookup and unavailable activation authority. Evidence:
+storage/app/private/registration-activation-contracts-2026-11-18/ (358/3,219 baseline).
 
-Sequence: encrypted immutable intent -> atomic OTP consume + original durable claim
-and stable child UUIDs -> independently irrevocable reservation + persisted exact
-command -> operation-bound current admission -> atomic account apply/deny. Never
-perform network calls inside Mongo transactions or create accounts after the boolean
-OTP verifier alone. Original intent UUID identifies operation and proposed user;
-user creation happens only at final apply. Abandoned reservations stay nonreusable.
-Local projection retains actual verified issuer state/revision/receipt; applied is
-local activation completion and never fabricates issued. No session/role/assignment/
-consent/certificate is implied. Unknown state/recovery remains fenced; lost ACKs retry
-only the original command, with valid possession proof/approved resume capability.
+Owner requested checkpoint commit 4139b48 and the next two steps on 2026-11-18.
+- [x] Task 2: encrypted immutable intent/start/resend; snapshot/primary/majority claim
+  commits wrong attempts and atomically consumes only correct current OTP with original
+  operation/child UUIDs. Separate recipient/OTP key IDs and domains, pinned limits/expiry,
+  current local gate and DB-clock ordering. Consumed OTP alone cannot resume processing.
+- [x] Task 3: persist original encrypted command before I/O; verify operation-bound
+  decision/current allocation; atomic provisional user/verified email/optional credential/
+  exact notice acknowledgments/redacted audit/journal + activation/intent transitions.
+  Rejection creates no account. Exact original-body repair rejects partial/changed
+  accounts, credentials, receipt metadata or backward issuer state/revision/time.
 
-Completed coding slice: closed RegistrationClaim, ActivationCommand/Decision and
-AllocationReservation contracts, privately verified decision/reservation/noncommit
-capabilities, typed lookup and unavailable activation authority. Pure bounded canonical
-v1 wire; no schema, user creation, durable job, delivery or public route was enabled.
-Server-owned proof policies pin namespace/generation/key IDs and observation bounds;
-proof callbacks must return strict true. Noncommit needs a challenged complete-ledger
-assertion; unknown/offline never proves absence. Reservation state remains the actual
-issuer state, not a fabricated issued state after local application.
+These are isolated transaction proofs only, not full IAM-01/runtime acceptance.
+RegistrationLabDatabase v1 explicitly installs only in local testing target
+studentity_test_registration_activation_v1: four proposed collections plus seven
+unchanged catalogue clones. Constructor/assertReady never installs or repairs metadata.
+No production migration, public route, delivery, session, role or verified academic
+assignment was added. Academic selections remain in the immutable encrypted intent.
+Real approval/issuer/activation authorities stay unavailable; no lab provider is bound.
+Server-owned gate callbacks are non-network fixtures and strict true is required.
+They do not establish independent production recovery/currentness.
 
-Rulings: historical same-original proof may reverify for repair; cross-body/operation/
-issuer replay denies. UTC causal/deadline checks have no implicit skew allowance;
-operator clock/trust policy remains a production gate. No receipt/lookup status grants
-current authorization or confirms a local account commit. Verified retirement can be
-history but cannot prepare a new activation command.
+Original intent UUID = allocation/activation operation = proposed user; no account
+exists until final apply. No network call spans a transaction. New decision submission
+needs the original deadline and configured destination; historical committed outcomes
+use guarded repair. Noncommit is reauthenticated under current configured policy and
+bound to current nonce/time; unknown/offline does not prove absence. Original command
+and child UUIDs never regenerate on retry. Keep actual verified issuer state/revision/
+receipt; local applied never invents issued. IDs remain irrevocably nonreusable.
 
-Review: both Important findings fixed with observed red/green regressions. Lookup
-status/payload are private; resolveFor requires the current operation, fresh server
-nonce and observation bounds even for cached unions. Command factory AND wire parser
-enforce claim verification <= reservation commit <= preparation < original deadline.
+Review: eight Important findings fixed with observed RED/GREEN regressions. Evidence:
+storage/app/private/registration-durable-2026-11-18/ (ledger.md, review-red.log,
+review-policy-red.log, review-green.log, full-tests-final.log, manifest.json).
+Scoped acceptance: 48 tests / 129 assertions; final full results are recorded above.
+Full suite: 406 / 3,348, no failures/skips (96.782s); Pint 12 new PHP files passed.
+Both accepted DBs remain 62 collections/128 indexes; six routes unchanged. All 13
+immutable checks match; archive/protected bytes match checkpoint. Vite passed before
+this PHP-only slice. Source and dependency versions unchanged except this slice.
+Rollback fences processing and retains claims/ciphertext/commands/receipts/burned-ID
+proof; selectively revert this slice's files after diff review. No drops/down cleanup.
 
-Results: 57 scoped tests / 82 assertions; full suite **358 / 3,219**, no failures or
-skips, 61.125s under explicit PHP84. Pint passes for 18 PHP files. Proposal wire
-metadata updated; collection validators/indexes unchanged and unapplied. Both accepted
-DBs remain 62 collections/128 indexes, six routes unchanged; all 13 protected/reference
-checks and archived bytes match. Vite not rerun for PHP-only work. Dependencies unchanged.
-No staging or commit. Evidence: storage/app/private/registration-activation-contracts-2026-11-18/
-(full-tests-final.log, review-resolution.md, file-manifest.json, final-checks.json).
-The 179-source baseline/provider/proposal/handoff snapshots support selective rollback:
-restore only the three listed prior files and remove only listed new files after diff
-review, preserving all unrelated/protected work and the 2,532-line archive.
+Rulings: match accepted migration's deduplication of equivalent notice-ack index names;
+one interrupted empty lab install was explicitly completed with its missing index,
+not repaired automatically. Normalize driver native int64 snapshots to BSON Int64
+for schema-validated epoch/revision comparison. These decisions affect isolated proof
+portability/repair comparisons; they do not change accepted schemas or production trust.
+Full rulings/costs and per-file evidence are in ledger.md/completion-report.md.
 
-Next: after explicit approval of the exact additive schema/isolated target, implement
-durable claim/store transactions, then original-ID/decision/final-apply and repair.
-Follow with FND-04 encrypted delivery/DTO/global throttle/readiness acceptance before
-separately reviewed public routes. Provider, ID format, deadlines, custody, notices
-and institutional approvals remain required inputs; never invent them.
+Next: separately approved independent issuer/admission/current recovery protocol and
+key/clock policy; FND-04 encrypted delivery/outbox/global throttling; approved notices
+and real deployment acceptance. Production schema application/public routes remain
+separately gated. No provider/institutional decision is implied by lab completion.
 
 ## Carried-forward open work / activation gates
 
@@ -160,6 +166,8 @@ and institutional approvals remain required inputs; never invent them.
     New deferred test hardening: replace the potentially flaky OTP substring check
     with structural MAC assertions; broaden the intent-ID-only account-write check
     to observe service-level account/session writes. No instrumented global claim.
+    Durable-slice minors: add a worker-ready barrier to prove simultaneous contention;
+    derive the absolute synthetic acknowledgment timestamp from the test clock.
 
 ## Daily commands
 
