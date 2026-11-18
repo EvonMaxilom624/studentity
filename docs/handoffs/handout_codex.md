@@ -1,6 +1,6 @@
 # Studentity — current Codex handoff
 
-Updated 2026-11-18. Work directly in this checkout on **master**, checkpoint 4139b48 (owner-requested commit).
+Updated 2026-11-18. Work directly in this checkout on **master**, checkpoints 4139b48 / 525d986 (owner-requested commits).
 This is the only maintained handoff; keep it short and replace completed execution
 detail with results/evidence links. Do not create competing roadmaps or branches.
 
@@ -36,8 +36,8 @@ Laravel 13.42.0, Tinker 3.1.0, Sanctum 4.4.0, PHPUnit 12.5.44; official MongoDB
 Laravel 5.12/library 2.5.1/extension 2.5.7; local MongoDB 8.3.7 rs0 PRIMARY.
 Node 24.13 / npm 11.6 / Vite 7.3.8. No dependency change is planned.
 
-Last full suite: **406 tests / 3,348 assertions**, no failures/skips. Evidence:
-storage/app/private/registration-durable-2026-11-18/full-tests-final.log.
+Last full suite: **408 tests / 3,375 assertions**, no failures/skips. Evidence:
+storage/app/private/registration-test-acceptance-2026-11-18/full-tests.log.
 Current runtime: unavailable security authority, file/JSON sessions, encryption=false,
 Eloquent AuthenticatedUser identity lookup, sync queue. No real login/registration or
 business API is exposed. Native encrypted/fenced HTTP/process/receipt/recovery proofs
@@ -125,10 +125,27 @@ for schema-validated epoch/revision comparison. These decisions affect isolated 
 portability/repair comparisons; they do not change accepted schemas or production trust.
 Full rulings/costs and per-file evidence are in ledger.md/completion-report.md.
 
-Next: separately approved independent issuer/admission/current recovery protocol and
-key/clock policy; FND-04 encrypted delivery/outbox/global throttling; approved notices
-and real deployment acceptance. Production schema application/public routes remain
-separately gated. No provider/institutional decision is implied by lab completion.
+Completed next-two acceptance follow-ups after resume:
+- [x] Worker-ready/release/entry barrier; both workers are live and no attempts change
+  before release. This proves coordinated starts, not measured Mongo transaction overlap.
+- [x] Clock-relative acknowledgment fixture; injected immutable clock, UTC offset/date
+  rollover, millisecond precision and default bounds tested. One-minute offset is a
+  test fixture choice, not institutional policy.
+Observed RED/GREEN; 50 scoped tests/156 assertions, full **408/3,375**, no failures/skips
+(72.260s), Pint4 PHP files passed. Fresh review: no Important findings; one deferred
+assertion below. All208 baseline files preserved; only three tests/helper files and this
+handoff changed, one unit-test file added. All13 immutable checks, archive, accepted
+schemas and six routes match. No app/dependency/schema change; Vite's checkpoint build
+remains applicable. Evidence: storage/app/private/registration-test-acceptance-2026-11-18/
+(ledger.md, full-tests.log, manifest.json, completion-report.md).
+
+Next bounded plans: (1) FND-04 audit/outbox/idempotent-command design against accepted
+background_jobs/job_results, closed reference-only redacted DTOs and exact additive lab
+schema proposal; (2) after design review, isolated worker leases/retry/per-item outcome
+proofs. Raw OTP/password/email payloads need a separately reviewed encrypted delivery
+handoff. Keep independent issuer/admission/current-recovery and key/clock design open;
+provider ownership, approved notices/global limits and real deployment acceptance are
+required before runtime registration/public routes. No institutional decision is implied.
 
 ## Carried-forward open work / activation gates
 
@@ -166,8 +183,9 @@ separately gated. No provider/institutional decision is implied by lab completio
     New deferred test hardening: replace the potentially flaky OTP substring check
     with structural MAC assertions; broaden the intent-ID-only account-write check
     to observe service-level account/session writes. No instrumented global claim.
-    Durable-slice minors: add a worker-ready barrier to prove simultaneous contention;
-    derive the absolute synthetic acknowledgment timestamp from the test clock.
+    Durable-slice minors resolved by the two acceptance follow-ups above. Remaining
+    Minor: assert entered markers are absent immediately before parent release; current
+    worker publishes them after its release wait. Actual transaction overlap is unmeasured.
 
 ## Daily commands
 

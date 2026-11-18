@@ -27,11 +27,13 @@ trait RegistrationTransactionFixtures
         return (new Client(config('database.connections.mongodb.dsn')))->selectDatabase('studentity_test_registration_activation_v1', ['typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array']]);
     }
 
-    private function payload(?string $email = null, bool $password = false): RegistrationPayload
+    private function payload(?string $email = null, bool $password = false, ?\DateTimeImmutable $observedAt = null): RegistrationPayload
     {
+        $acknowledgedAt = ($observedAt ?? new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone('UTC'))->modify('-1 minute');
+
         return new RegistrationPayload(['purpose' => 'studentity.registration.intent-payload.v1', 'schemaVersion' => 1,
             'intent' => ['id' => $this->uuid(), 'email' => $email ?? $this->uuid().'@example.invalid', 'programId' => $this->uuid(), 'departmentId' => $this->uuid(), 'yearLevel' => '1', 'classification' => 'Incoming Freshman', 'termsVersion' => 'synthetic-terms-'.$this->uuid(), 'termsHash' => hash('sha256', 'synthetic terms'), 'noticeVersion' => 'synthetic-privacy-'.$this->uuid(), 'noticeHash' => hash('sha256', 'synthetic privacy'), 'acknowledged' => true, 'passwordHash' => $password ? password_hash('synthetic-only-password', PASSWORD_BCRYPT, ['cost' => 4]) : null],
-            'terms_notice_id' => $this->uuid(), 'privacy_notice_id' => $this->uuid(), 'acknowledged_at' => '2026-11-18T00:00:00.000Z']);
+            'terms_notice_id' => $this->uuid(), 'privacy_notice_id' => $this->uuid(), 'acknowledged_at' => $acknowledgedAt->format('Y-m-d\TH:i:s.v\Z')]);
     }
 
     private function cipher(): RegistrationPayloadCipher

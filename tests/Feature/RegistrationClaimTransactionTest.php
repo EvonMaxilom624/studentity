@@ -135,15 +135,39 @@ final class RegistrationClaimTransactionTest extends TestCase
         }
         $input = ['action' => 'claim', 'id' => $id, 'challenge' => $ch, 'code' => $race === 'last-attempt' ? '000000' : '123456'];
         $inputs = [$input, $race === 'resend' ? ['action' => 'resend', 'id' => $id, 'challenge' => $this->uuid(), 'code' => '654321'] : $input];
+        $barrierId = $this->uuid();
+        $barrier = storage_path('app/private/registration-transaction-barriers/'.$barrierId);
+        if (! mkdir($barrier, 0700, true) && ! is_dir($barrier)) {
+            throw new \RuntimeException('Synthetic barrier unavailable.');
+        }
         $workers = [];
         try {
-            foreach ($inputs as $v) {
+            foreach ($inputs as $slot => $v) {
+                $v['barrierId'] = $barrierId;
+                $v['slot'] = $slot;
                 $w = new Process([PHP_BINARY, base_path('tests/Support/registration-transaction-worker.php')], base_path(), ['APP_ENV' => 'testing']);
                 $w->setTimeout(20);
                 $w->setInput(json_encode($v, JSON_THROW_ON_ERROR));
                 $w->start();
                 $workers[] = $w;
             }
+            $deadline = hrtime(true) + 5_000_000_000;
+            while (hrtime(true) < $deadline) {
+                clearstatcache();
+                if (is_file($barrier.'/0.ready') && is_file($barrier.'/1.ready')) {
+                    break;
+                }
+                if (! $workers[0]->isRunning() || ! $workers[1]->isRunning()) {
+                    break;
+                }
+                usleep(10000);
+            }
+            self::assertFileExists($barrier.'/0.ready');
+            self::assertFileExists($barrier.'/1.ready');
+            self::assertTrue($workers[0]->isRunning());
+            self::assertTrue($workers[1]->isRunning());
+            self::assertSame($race === 'last-attempt' ? 2 : 0, $this->registrationDb()->registration_challenges_v1->findOne(['_id' => $ch])['attempts']);
+            file_put_contents($barrier.'/release', 'release', LOCK_EX);
             $wins = 0;
             foreach ($workers as $w) {
                 $w->wait();
@@ -151,6 +175,8 @@ final class RegistrationClaimTransactionTest extends TestCase
                 self::assertSame('', $w->getErrorOutput());
                 $wins += (int) json_decode($w->getOutput(), true, 8, JSON_THROW_ON_ERROR)['ok'];
             }
+            self::assertFileExists($barrier.'/0.entered');
+            self::assertFileExists($barrier.'/1.entered');
             self::assertSame($race === 'last-attempt' ? 0 : 1, $wins);
             if ($race === 'last-attempt') {
                 self::assertSame(3, $this->registrationDb()->registration_challenges_v1->findOne(['_id' => $ch])['attempts']);
@@ -245,6 +271,6 @@ final class RegistrationClaimTransactionTest extends TestCase
         $row = $this->registrationDb()->registration_challenges_v1->findOne(['_id' => $ch]);
         self::assertSame('synthetic-recipient-v1', $row['recipient_key_id']);
         self::assertSame('synthetic-verification-v1', $row['verification_key_id']);
-        self::assertSame(hash_hmac('sha256', 'studentity.registration.recipient.v1:'.$p->intent->recipient(), str_repeat('R',32)), $row['recipient_digest']);
+        self::assertSame(hash_hmac('sha256', 'studentity.registration.recipient.v1:'.$p->intent->recipient(), str_repeat('R', 32)), $row['recipient_digest']);
     }
 }
