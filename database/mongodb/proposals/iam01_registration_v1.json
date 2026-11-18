@@ -1,0 +1,1132 @@
+{
+    "proposal": "studentity.iam01.registration.v1",
+    "status": "review-only-not-applied",
+    "date": "2026-11-18",
+    "encoding": "JSON document; validator $numberLong values use MongoDB Extended JSON and must be decoded as BSON long, never float.",
+    "authority": "SRS v1.1; accepted ADR-01/02; original IAM-01/FND-03/FND-05/G-05 backlog. No institutional or deployment approval implied.",
+    "placement": "Four additive application-MongoDB collections proposed for a later reviewed migration. Never auto-loaded; no modification of accepted v1 catalogue or fixture metadata.",
+    "scope": "Durable registration admission/account activation only. No session, privilege, enrollment, verified academic identity, consent or certificate is issued.",
+    "design_choices": [
+        "Use one immutable intent UUIDv4 as intent/activation-operation/proposed user UUID; no user document exists before final apply. Reusing this UUID across separate namespaces does not assign a System ID before registration.",
+        "System ID reservation is independent and idempotent by operation + intent fingerprint. A reserved ID may be abandoned but never freed/recycled. Mongo allocation rows are projections only.",
+        "Allocation state mirrors the independently verified issuer state/revision/receipt exactly. A successful local registration may therefore retain issuer state reserved; activation.state=applied records local account application separately. No issued transition is inferred from account commit. This requires an irrevocable, non-expiring/non-reclaimable reservation binding to the original operation/user UUID; a leased/reusable reservation is not acceptable. Only a later independently authenticated issuer acknowledgment can advance projection to issued or retired.",
+        "Claiming OTP and recording a durable original claim/allocation command are one Mongo transaction. Directly calling the existing boolean verifier then creating a user is forbidden.",
+        "An operation-bound independently authenticated activation decision must close the approval-change race; a boolean approval lookup or short TTL alone cannot serialize legal admission with an external authority.",
+        "Dedicated registration challenges are an explicit proposed divergence from the original backlog auth_challenges mapping; accepted general auth_challenges remains untouched. No TTL until recovery/retention policy is approved.",
+        "Candidate numeric OTP input length 4-12 and attempt ceiling 10 preserve current prerequisite bounds, not institutional OTP settings. Lifetime, resend/processing deadlines, key custody and official ID format remain unselected."
+    ],
+    "collections": [
+        {
+            "name": "registration_intents_v1",
+            "options": {
+                "validator": {
+                    "$jsonSchema": {
+                        "bsonType": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "_id",
+                            "schema_version",
+                            "intent_fingerprint",
+                            "sealed_payload_hash",
+                            "notice_bundle_fingerprint",
+                            "recipient_digest",
+                            "recipient_key_id",
+                            "payload_ciphertext",
+                            "payload_key_id",
+                            "state",
+                            "revision",
+                            "created_at",
+                            "updated_at",
+                            "expires_at"
+                        ],
+                        "properties": {
+                            "_id": {
+                                "bsonType": "string",
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                            },
+                            "schema_version": {
+                                "bsonType": "int",
+                                "enum": [
+                                    1
+                                ]
+                            },
+                            "intent_fingerprint": {
+                                "bsonType": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "sealed_payload_hash": {
+                                "bsonType": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "notice_bundle_fingerprint": {
+                                "bsonType": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "recipient_digest": {
+                                "bsonType": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "recipient_key_id": {
+                                "bsonType": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                            },
+                            "payload_ciphertext": {
+                                "bsonType": "binData"
+                            },
+                            "payload_key_id": {
+                                "bsonType": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                            },
+                            "state": {
+                                "bsonType": "string",
+                                "enum": [
+                                    "pending",
+                                    "claimed",
+                                    "activated",
+                                    "denied"
+                                ]
+                            },
+                            "revision": {
+                                "bsonType": "long",
+                                "minimum": 0,
+                                "maximum": {
+                                    "$numberLong": "9223372036854775807"
+                                }
+                            },
+                            "created_at": {
+                                "bsonType": "date"
+                            },
+                            "updated_at": {
+                                "bsonType": "date"
+                            },
+                            "expires_at": {
+                                "bsonType": "date"
+                            },
+                            "operation_id": {
+                                "bsonType": "string",
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                            },
+                            "completed_at": {
+                                "bsonType": "date"
+                            }
+                        },
+                        "oneOf": [
+                            {
+                                "properties": {
+                                    "state": {
+                                        "enum": [
+                                            "pending"
+                                        ]
+                                    }
+                                },
+                                "not": {
+                                    "anyOf": [
+                                        {
+                                            "required": [
+                                                "operation_id"
+                                            ]
+                                        },
+                                        {
+                                            "required": [
+                                                "completed_at"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "properties": {
+                                    "state": {
+                                        "enum": [
+                                            "claimed"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "operation_id"
+                                ],
+                                "not": {
+                                    "anyOf": [
+                                        {
+                                            "required": [
+                                                "completed_at"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "properties": {
+                                    "state": {
+                                        "enum": [
+                                            "activated"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "operation_id",
+                                    "completed_at"
+                                ]
+                            },
+                            {
+                                "properties": {
+                                    "state": {
+                                        "enum": [
+                                            "denied"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "operation_id",
+                                    "completed_at"
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+            },
+            "implicit_id_index": "MongoDB unique _id_; do not recreate",
+            "indexes": [
+                {
+                    "name": "ix_registration_recipient",
+                    "keys": {
+                        "recipient_digest": 1,
+                        "created_at": -1
+                    }
+                },
+                {
+                    "name": "ix_registration_pending",
+                    "keys": {
+                        "state": 1,
+                        "expires_at": 1
+                    }
+                }
+            ],
+            "ttl": "none; disposal/retention requires separate approval"
+        },
+        {
+            "name": "registration_challenges_v1",
+            "options": {
+                "validator": {
+                    "$and": [
+                        {
+                            "$jsonSchema": {
+                                "bsonType": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "_id",
+                                    "schema_version",
+                                    "intent_id",
+                                    "intent_fingerprint",
+                                    "purpose",
+                                    "recipient_digest",
+                                    "recipient_key_id",
+                                    "code_digest",
+                                    "verification_key_id",
+                                    "policy_ref",
+                                    "attempts",
+                                    "max_attempts",
+                                    "is_current",
+                                    "created_at",
+                                    "expires_at"
+                                ],
+                                "properties": {
+                                    "_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "schema_version": {
+                                        "bsonType": "int",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "intent_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "intent_fingerprint": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "purpose": {
+                                        "bsonType": "string",
+                                        "enum": [
+                                            "registration.email"
+                                        ]
+                                    },
+                                    "recipient_digest": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "recipient_key_id": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "code_digest": {
+                                        "bsonType": "binData"
+                                    },
+                                    "verification_key_id": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "policy_ref": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "attempts": {
+                                        "bsonType": "int",
+                                        "minimum": 0,
+                                        "maximum": 10
+                                    },
+                                    "max_attempts": {
+                                        "bsonType": "int",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                    },
+                                    "is_current": {
+                                        "bsonType": "bool"
+                                    },
+                                    "created_at": {
+                                        "bsonType": "date"
+                                    },
+                                    "expires_at": {
+                                        "bsonType": "date"
+                                    },
+                                    "consumed_at": {
+                                        "bsonType": "date"
+                                    },
+                                    "claim_operation_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    }
+                                },
+                                "oneOf": [
+                                    {
+                                        "not": {
+                                            "anyOf": [
+                                                {
+                                                    "required": [
+                                                        "consumed_at"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "claim_operation_id"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "required": [
+                                            "consumed_at",
+                                            "claim_operation_id"
+                                        ],
+                                        "properties": {
+                                            "is_current": {
+                                                "enum": [
+                                                    false
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "$expr": {
+                                "$and": [
+                                    {
+                                        "$lte": [
+                                            "$attempts",
+                                            "$max_attempts"
+                                        ]
+                                    },
+                                    {
+                                        "$cond": [
+                                            {
+                                                "$eq": [
+                                                    {
+                                                        "$type": "$consumed_at"
+                                                    },
+                                                    "missing"
+                                                ]
+                                            },
+                                            true,
+                                            {
+                                                "$eq": [
+                                                    "$claim_operation_id",
+                                                    "$intent_id"
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+            },
+            "implicit_id_index": "MongoDB unique _id_; do not recreate",
+            "indexes": [
+                {
+                    "name": "uq_current_registration_challenge",
+                    "keys": {
+                        "intent_id": 1
+                    },
+                    "unique": true,
+                    "partialFilterExpression": {
+                        "is_current": true
+                    }
+                },
+                {
+                    "name": "ix_registration_challenge_expiry",
+                    "keys": {
+                        "expires_at": 1
+                    }
+                }
+            ],
+            "ttl": "none; disposal/retention requires separate approval"
+        },
+        {
+            "name": "registration_activations_v1",
+            "options": {
+                "validator": {
+                    "$and": [
+                        {
+                            "$jsonSchema": {
+                                "bsonType": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "_id",
+                                    "schema_version",
+                                    "intent_id",
+                                    "user_id",
+                                    "intent_fingerprint",
+                                    "sealed_payload_hash",
+                                    "notice_bundle_fingerprint",
+                                    "challenge_id",
+                                    "claim_ciphertext",
+                                    "claim_key_id",
+                                    "claim_fingerprint",
+                                    "state",
+                                    "revision",
+                                    "created_at",
+                                    "verified_at",
+                                    "processing_deadline"
+                                ],
+                                "properties": {
+                                    "_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "schema_version": {
+                                        "bsonType": "int",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "intent_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "user_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "intent_fingerprint": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "sealed_payload_hash": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "notice_bundle_fingerprint": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "challenge_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "claim_ciphertext": {
+                                        "bsonType": "binData"
+                                    },
+                                    "claim_key_id": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "claim_fingerprint": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "state": {
+                                        "bsonType": "string",
+                                        "enum": [
+                                            "claimed",
+                                            "prepared",
+                                            "applied",
+                                            "denied"
+                                        ]
+                                    },
+                                    "revision": {
+                                        "bsonType": "long",
+                                        "minimum": 0,
+                                        "maximum": {
+                                            "$numberLong": "9223372036854775807"
+                                        }
+                                    },
+                                    "created_at": {
+                                        "bsonType": "date"
+                                    },
+                                    "verified_at": {
+                                        "bsonType": "date"
+                                    },
+                                    "processing_deadline": {
+                                        "bsonType": "date"
+                                    },
+                                    "system_id": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128,
+                                        "pattern": "^[A-Za-z0-9:._-]+$"
+                                    },
+                                    "allocation_ref": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "command_ciphertext": {
+                                        "bsonType": "binData"
+                                    },
+                                    "command_key_id": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "command_fingerprint": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "prepared_at": {
+                                        "bsonType": "date"
+                                    },
+                                    "decision_ref": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "decision_hash": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "decision_at": {
+                                        "bsonType": "date"
+                                    },
+                                    "applied_at": {
+                                        "bsonType": "date"
+                                    }
+                                },
+                                "oneOf": [
+                                    {
+                                        "properties": {
+                                            "state": {
+                                                "enum": [
+                                                    "claimed"
+                                                ]
+                                            }
+                                        },
+                                        "not": {
+                                            "anyOf": [
+                                                {
+                                                    "required": [
+                                                        "system_id"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "allocation_ref"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "command_ciphertext"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "command_key_id"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "command_fingerprint"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "prepared_at"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "decision_ref"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "decision_hash"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "decision_at"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "applied_at"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "properties": {
+                                            "state": {
+                                                "enum": [
+                                                    "prepared"
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "system_id",
+                                            "allocation_ref",
+                                            "command_ciphertext",
+                                            "command_key_id",
+                                            "command_fingerprint",
+                                            "prepared_at"
+                                        ],
+                                        "not": {
+                                            "anyOf": [
+                                                {
+                                                    "required": [
+                                                        "decision_ref"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "decision_hash"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "decision_at"
+                                                    ]
+                                                },
+                                                {
+                                                    "required": [
+                                                        "applied_at"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "properties": {
+                                            "state": {
+                                                "enum": [
+                                                    "applied"
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "system_id",
+                                            "allocation_ref",
+                                            "command_ciphertext",
+                                            "command_key_id",
+                                            "command_fingerprint",
+                                            "prepared_at",
+                                            "decision_ref",
+                                            "decision_hash",
+                                            "decision_at",
+                                            "applied_at"
+                                        ]
+                                    },
+                                    {
+                                        "properties": {
+                                            "state": {
+                                                "enum": [
+                                                    "denied"
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "system_id",
+                                            "allocation_ref",
+                                            "command_ciphertext",
+                                            "command_key_id",
+                                            "command_fingerprint",
+                                            "prepared_at",
+                                            "decision_ref",
+                                            "decision_hash",
+                                            "decision_at"
+                                        ],
+                                        "not": {
+                                            "anyOf": [
+                                                {
+                                                    "required": [
+                                                        "applied_at"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "$expr": {
+                                "$and": [
+                                    {
+                                        "$eq": [
+                                            "$_id",
+                                            "$intent_id"
+                                        ]
+                                    },
+                                    {
+                                        "$eq": [
+                                            "$_id",
+                                            "$user_id"
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+            },
+            "implicit_id_index": "MongoDB unique _id_; do not recreate",
+            "indexes": [
+                {
+                    "name": "uq_registration_claim_challenge",
+                    "keys": {
+                        "challenge_id": 1
+                    },
+                    "unique": true
+                },
+                {
+                    "name": "ix_registration_repair",
+                    "keys": {
+                        "state": 1,
+                        "created_at": 1
+                    }
+                }
+            ],
+            "ttl": "none; disposal/retention requires separate approval"
+        },
+        {
+            "name": "system_id_allocations_v1",
+            "options": {
+                "validator": {
+                    "$and": [
+                        {
+                            "$jsonSchema": {
+                                "bsonType": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "_id",
+                                    "schema_version",
+                                    "user_id",
+                                    "intent_fingerprint",
+                                    "system_id",
+                                    "state",
+                                    "revision",
+                                    "issuer_namespace",
+                                    "issuer_generation",
+                                    "authority_ref",
+                                    "receipt_hash",
+                                    "recorded_at"
+                                ],
+                                "properties": {
+                                    "_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "schema_version": {
+                                        "bsonType": "int",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "user_id": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                                    },
+                                    "intent_fingerprint": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "system_id": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128,
+                                        "pattern": "^[A-Za-z0-9:._-]+$"
+                                    },
+                                    "state": {
+                                        "bsonType": "string",
+                                        "enum": [
+                                            "reserved",
+                                            "issued",
+                                            "retired"
+                                        ]
+                                    },
+                                    "revision": {
+                                        "bsonType": "long",
+                                        "minimum": 1,
+                                        "maximum": {
+                                            "$numberLong": "9223372036854775807"
+                                        }
+                                    },
+                                    "issuer_namespace": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "issuer_generation": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "authority_ref": {
+                                        "bsonType": "string",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "receipt_hash": {
+                                        "bsonType": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    },
+                                    "recorded_at": {
+                                        "bsonType": "date"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "$expr": {
+                                "$eq": [
+                                    "$_id",
+                                    "$user_id"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+            },
+            "implicit_id_index": "MongoDB unique _id_; do not recreate",
+            "indexes": [
+                {
+                    "name": "uq_nonrecycled_system_id",
+                    "keys": {
+                        "system_id": 1
+                    },
+                    "unique": true
+                }
+            ],
+            "ttl": "none; disposal/retention requires separate approval"
+        }
+    ],
+    "interface_gaps_before_implementation": [
+        "SystemIdIssuer currently returns SystemIdAllocation only (operation/fingerprint/ID/state/revision), not issuer proof/reference. Propose a verified reservation envelope/acknowledged port that binds those fields plus configured issuer namespace/generation and authenticates authority_ref/receipt_hash. Reservation is irrevocably bound/nonreusable even if its state remains reserved after local apply; no issue RPC/issued proof is invented. Preserve issuer state in the projection and local completion only in activation.state. Do not manufacture independent proof by hashing a local projection or silently relabel the existing value as an external receipt.",
+        "CurrentApprovalAuthority.confirms is preflight only. Proposed RegistrationActivationAuthority accepts original closed ActivationCommand and returns authenticated operation-bound allowed/rejected decision; lookup uses original operation and strict committed/noncommit/unknown semantics. No concrete provider or proof algorithm is selected.",
+        "Existing RegistrationChallengeRepository.consume returns bool without a transaction/session or durable claim; it cannot implement claim+operation atomicity. Add a transaction-owned claim adapter, preserving the prerequisite primitive until the new contract/metadata is accepted.",
+        "RegistrationIntent has no persistence export; add a versioned server-only envelope codec with closed decrypt validation rather than public plaintext JSON serialization. Test byte-stable fingerprints/child IDs and redacted debug/exception paths."
+    ],
+    "sealed_payload_contracts": {
+        "intent": {
+            "purpose": "studentity.registration.intent-payload.v1",
+            "schemaVersion": 1,
+            "fields": [
+                "intent (all validated RegistrationIntent fields; passwordHash optional/null and server-generated only)",
+                "terms_notice_id UUID",
+                "privacy_notice_id UUID",
+                "acknowledged_at canonical UTC millisecond string"
+            ],
+            "binding": "Canonical plaintext hash = sealed_payload_hash; authenticated ciphertext wrapper binds collection, intent UUID, intent_fingerprint and payload hash. Validate exact plaintext shape after decrypt. No raw password."
+        },
+        "claim": {
+            "purpose": "studentity.registration.claim.v1",
+            "schemaVersion": 1,
+            "fields": [
+                "operationId/intentId/userId (same original UUID)",
+                "intentFingerprint",
+                "sealedPayloadHash",
+                "noticeBundleFingerprint",
+                "challengeId",
+                "verifiedAt",
+                "processingDeadline",
+                "correlationId (original UUID)",
+                "allocation operationId + original intent fingerprint",
+                "stable UUIDs: emailId, optional credentialId, termsAckId, privacyAckId, auditId, journalId"
+            ],
+            "binding": "Generate stable child IDs exactly once in the claim transaction; hash canonical body into claim_fingerprint. No raw OTP or mail/password secret."
+        },
+        "activation_command": {
+            "purpose": "studentity.registration.activation-command.v1",
+            "schemaVersion": 1,
+            "fields": [
+                "operationId",
+                "original closed claim body including stable child IDs (no raw OTP/password/email)",
+                "claimFingerprint",
+                "intentFingerprint",
+                "sealedPayloadHash",
+                "noticeBundleFingerprint",
+                "userId",
+                "reserved systemId",
+                "allocation authority reference",
+                "configured issuer namespace/generation",
+                "processing deadline",
+                "original correlation UUID"
+            ],
+            "binding": "Persist exact canonical encrypted command before external submission; command_fingerprint excludes transport encryption randomness. Never generate new child IDs/body on retry. Independent lookup must recover original canonical command/receipt; if original sealed intent payload or keys are lost, hashes cannot reconstruct them and automatic completion stays fenced."
+        }
+    },
+    "protocol": [
+        {
+            "step": "start",
+            "guard": "Current G-05 exact notice bundle; technical readiness; reviewed global recipient/IP throttling and delivery policy.",
+            "atomicMongo": "Store immutable encrypted pending intent and current challenge before any approved delivery handoff. No users, credentials, sessions or grants.",
+            "retry": "Start idempotency requires a separately reviewed optional header if added; multiple intents cannot bypass current verified-email uniqueness at apply. Generic Challenge response must not enumerate accounts."
+        },
+        {
+            "step": "claim",
+            "guard": "Current notices/approval; pending intent exact ciphertext hash; current challenge/purpose/recipient/intent MAC; DB-clock expiry and bounded attempts.",
+            "atomicMongo": "One snapshot/primary/majority transaction increments attempt, consumes only correct code, sets is_current=false and claim_operation_id, CASes pending->claimed, and inserts original activation claim. Wrong code commits its attempt without claim/user; aborted transaction consumes nothing.",
+            "retry": "Existing consumed claim can resume only from its original durable operation AND trusted independent current/recovery evidence; never from the supplied OTP or restored local consumed flag alone."
+        },
+        {
+            "step": "reserve-prepare",
+            "guard": "Verified durable claim; trusted independently current SystemIdIssuer; original processing deadline for a new decision.",
+            "atomicMongo": "After independently acknowledged reserve(original operation, original intent fingerprint), CAS claimed->prepared with exact reserved ID/reference and encrypted original activation command. No account or session yet.",
+            "retry": "Lost reserve ACK: authenticated lookup/retry SAME issuer operation. Restored/absent local projection is not proof an ID is free. Lost prepare ACK: read/reconcile exact original body, never overwrite conflicts."
+        },
+        {
+            "step": "decide",
+            "guard": "Proposed RegistrationActivationAuthority.verify-and-decide(original command) serializes current notices/approval and identity/account-recovery fences at its own authoritative ordering point.",
+            "atomicMongo": "No transaction spans network. Keep prepared local command while independent result is unknown. Authenticated decision receipt binds every original fingerprint, reserved ID, operation and configured issuer generation.",
+            "retry": "Authenticated lookup original operation returns committed allowed/rejected, authenticated noncommit or unknown. Unknown/offline/mismatched/expired-before-new-admission stays fenced. Historical admission receipt never supplies current positive authorization."
+        },
+        {
+            "step": "apply-or-deny",
+            "guard": "Verify original decision receipt AND independently current recovery/admission/issuer state. Current issuer proof must retain the same operation/fingerprint/ID and be non-retired; a later retirement blocks new account application even with an old admission receipt. Local duplicate email/user/ID/binding conflicts cannot be repaired by attaching to someone else.",
+            "atomicMongo": "Allowed: one snapshot/primary/majority transaction creates exact users + verified primary personal email + optional credential + two historical notice acknowledgments + redacted audit/security journal, stores the independently verified current allocation proof without synthesizing state/revision/receipt, and marks activation applied and intent activated. Rejected: atomically mark denied + redacted audit, no users/credentials/sessions. Require exact immutable bodies on retry and authenticated monotone issuer projection reconciliation; no upsert into unrelated records.",
+            "retry": "Lost commit ACK: reconcile original operation/current authority and all immutable mapped records. Local applied status never implies issuer state issued; lookup/reuse of the same irrevocable reservation is sufficient, not a new issue command. If issuer state later legitimately advances, preserve the original reservation in the encrypted original command and accept only a verified monotone latest projection. Missing/partial data or changed credentials/account state does not imply noncommit or permission to recreate/reset. Never downgrade a later disabled/recovered account."
+        }
+    ],
+    "application_guards_not_proven_by_schema": [
+        "Digest/MAC binary length 32, authenticated encryption, decoded payload/command closed shapes and fingerprints must be checked in application; binData shape alone is insufficient. Pin bounded canonical plaintext (existing 16KiB authority envelope limit) and reviewed ciphertext/body limits before implementation.",
+        "recipient_key_id identifies the pinned recipient-HMAC key independently of payload/OTP verification keys. Rotation must preserve pending bindings and cross-key abuse accounting rather than resetting limits; unknown keys deny.",
+        "All referenced IDs/notice stored objects/current versions and content hashes, provisional program/department/year/classification are server-resolved. Do not write an authorized program_assignment or verified student_identifier from self-selection.",
+        "CAS every state/revision update and guard BSON-long exhaustion; allowed local transitions pending->claimed->activated|denied, activation claimed->prepared->applied|denied. Allocation state/revision is copied only from verified current issuer proof with no backwards/free transition; final account apply does not cause reserved->issued. Reserved can remain permanently bound; later issued/retired requires its own authenticated issuer acknowledgment, not a local fabrication.",
+        "Resend atomically supersedes the old current challenge only while intent pending; it cannot clear global attempt/rate policy or reset a claimed operation. Revisions must invalidate stale concurrent resend/claim.",
+        "No raw OTP/password in persisted intent/commands, background_jobs.payload_redacted, audit, URLs, argv or exceptions. Approved encrypted short-lived delivery handoff/outbox belongs to FND-04 and is not provided by this proposal.",
+        "After any local restore, do not trust applied/consumed/issued flags or local unique indexes as independent truth. Require trusted current account/registration/issuer recovery evidence; unavailable default denies.",
+        "Existing general auth_challenges, test-only prerequisite collections, accepted 62-collection catalogue, active unavailable providers and public routes remain unchanged until a separately approved implementation."
+    ],
+    "api_mapping": {
+        "POST /api/v1/auth/registrations": "Existing 200 Challenge envelope, generic anti-enumeration. Durable delivery handoff acknowledgment means scheduled, not delivered; only a reviewed actual delivery outcome can be reported as delivery.",
+        "POST /api/v1/auth/email-verifications": "200 SelfUser only after exact final account commit and permitted current recovery state. No session/cookie authentication implicitly follows.",
+        "pending_or_unknown": "Existing proposed 503 Problem with stable correlation, not a new 202 body or false success. 409 for binding/uniqueness conflict without disclosing other accounts. Public retry is not lookup-by-challengeId: require still-valid possession proof under reviewed limits or an approved secret resume capability, plus independent current recovery evidence. Returning an exact prior result is not a second OTP consumption or new authentication; expired proof gets no public account result. Internal recovery can reconcile an acknowledged original without authorizing its caller.",
+        "dto_review_required": "RegisterInput lacks department/year despite FR-ID-001. Propose reviewed optional additive request fields plus server catalogue validation; do not silently require unversioned new fields or invent verified academic data. Staff SelfUser.systemId and CSRF/uncertainty mappings remain separate contract-review items."
+    },
+    "failure_matrix": {
+        "claim transaction abort": "No consumption/user/command; wrong-attempt rollback has no grant; outer rate limiting still applies.",
+        "claim commit ACK lost": "Find same claim/intent and reconcile before any issuer call; never new UUID/OTP-only completion from local restored state.",
+        "issuer ACK or prepare commit ACK lost": "Lookup same operation; keep reserved IDs burned and original allocation binding; unknown fences.",
+        "local account committed while issuer remains reserved": "Valid only with independently durable irrevocable nonreusable binding. Keep projection reserved with the actual issuer receipt/revision; activation applied records local success. Lost local ACK reuses that same reservation, never fabricates issued or asks for another System ID.",
+        "approval changes before independent decision": "Decision rejects/holds old bundle; re-present approved material notice in a new immutable intent, never rewrite old evidence.",
+        "notice changes after authoritative admission": "Preserve exact admission ordering/history; current authority/material-change policy decides further processing, never infer perpetual consent or authorization from a past receipt.",
+        "two intents race on verified email": "Unique verified-email index permits one account; loser does not attach to winner/change its password. Reserved loser ID remains unavailable for reuse; retain repair evidence.",
+        "local activation commit ACK lost": "Read original operation/receipt and exact mapped bodies on primary; repair only under trusted current authoritative recovery rules.",
+        "stale restore or newer recovery/deactivation": "Historical receipt is not current permission; never overwrite security_epoch/password/revocation or regenerate a user from local absence alone.",
+        "key unavailable/tampered payload/unknown schema": "Refuse processing; no random key fallback, partial decode or automatic schema/index repair."
+    },
+    "next_implementation_plan": [
+        {
+            "order": 1,
+            "files": [
+                "app/Domain/Registration/{RegistrationClaim,ActivationCommand,ActivationDecision,RegistrationActivationAuthority}.php",
+                "app/Domain/Identifiers/VerifiedAllocationReservation.php (or reviewed equivalent acknowledged envelope)",
+                "tests/Unit/RegistrationActivationContractTest.php"
+            ],
+            "work": "Pin closed canonical claim/decision and acknowledged allocation bindings plus authenticated lookup semantics against server-trusted configuration; unavailable implementation remains default. Tests first: changed operation/notice/allocation/issuer, false currentness, unknown/forged/replayed decision, raw-secret redaction."
+        },
+        {
+            "order": 2,
+            "files": [
+                "app/Infrastructure/Registration/{MongoRegistrationIntentRepository,MongoRegistrationActivationRepository}.php",
+                "tests/Feature/RegistrationClaimTransactionTest.php"
+            ],
+            "work": "After schema approval, implement versioned additive migration in an expressly approved isolated target; validate exact metadata without collMod repair. Atomically claim+record original operation; failure/last-attempt/resend concurrency and lost-ACK tests before implementation. Do not modify current bool-verifier contract into a full activation result."
+        },
+        {
+            "order": 3,
+            "files": [
+                "app/Domain/Registration/RegistrationService.php",
+                "app/Infrastructure/Registration/MongoRegistrationRepository.php",
+                "tests/Feature/RegistrationActivationTransactionTest.php"
+            ],
+            "work": "After independently trusted issuer/admission protocol and schema acceptance, coordinate original ID reserve/prepare/decision/final apply with safe lookup and exact immutable comparisons. Use synthetic records and no public routes; test duplicate email, false local restore, original-child-ID retry and later-recovery fences."
+        },
+        {
+            "order": 4,
+            "files": [
+                "separately reviewed FND-04 encrypted delivery/outbox",
+                "routes/api.php + registration controllers only after gates"
+            ],
+            "work": "Complete policy/DTO/global-rate-limit/approved-notice/delivery work and real deployment acceptance before proposing route activation. No provider or institution approval is supplied by this artifact."
+        }
+    ],
+    "rollback": "Before apply: remove proposal only after diff review. Future applied change: fence issuance/access, retain all claims/commands/receipts, ciphertext key access and burned/retired ID evidence; no drops, down cleanup or file-session fallback. Restore code/config only through separately reviewed compatibility/reauth/MFA plan.",
+    "implemented_wire_contracts_v1": {
+        "status": "Implemented as pure contracts with unavailable runtime authority; schemas, real provider and application remain gated.",
+        "RegistrationClaim": {
+            "purpose": "studentity.registration.claim.v1",
+            "fields": [
+                "purpose",
+                "schemaVersion",
+                "operationId",
+                "intentId",
+                "userId",
+                "intentFingerprint",
+                "sealedPayloadHash",
+                "noticeBundleFingerprint",
+                "challengeId",
+                "verifiedAt",
+                "processingDeadline",
+                "correlationId",
+                "childIds"
+            ],
+            "childIds": [
+                "emailId",
+                "credentialId",
+                "termsAckId",
+                "privacyAckId",
+                "auditId",
+                "journalId"
+            ],
+            "credentialId": "Required member, UUID or null. Terms/privacy acknowledgment IDs must differ. operationId=intentId=userId."
+        },
+        "AllocationReservation": {
+            "purpose": "studentity.system-id.reservation.v1",
+            "fields": [
+                "purpose",
+                "schemaVersion",
+                "operationId",
+                "userId",
+                "intentFingerprint",
+                "systemId",
+                "state",
+                "revision",
+                "authorityNamespace",
+                "issuerGeneration",
+                "signingKeyId",
+                "authorityRef",
+                "committedAt",
+                "proof"
+            ],
+            "revision": "Canonical decimal string, 1..9223372036854775807; never JSON float.",
+            "verification": "VerifiedAllocationReservation authenticates configured issuer, exact claim operation/user/intent fingerprint and causal time. Retired proof is history and cannot prepare a command. It does not establish current issuer state."
+        },
+        "ActivationCommand": {
+            "purpose": "studentity.registration.activation-command.v1",
+            "fields": [
+                "purpose",
+                "schemaVersion",
+                "authorityNamespace",
+                "expectedIssuerGeneration",
+                "preparedAt",
+                "claim",
+                "allocation"
+            ],
+            "nested": "Full closed claim and original signed allocation data. Factory takes verified allocation; parsed DTO still requires proof verification. Claim verification must precede allocation commit, which must precede preparedAt within the original claim window; enforced for factory and parsed commands. Persist/retry exact canonical command including original nested proof."
+        },
+        "ActivationDecision": {
+            "purpose": "studentity.registration.activation-decision.v1",
+            "fields": [
+                "purpose",
+                "schemaVersion",
+                "operationId",
+                "userId",
+                "intentFingerprint",
+                "claimFingerprint",
+                "sealedPayloadHash",
+                "noticeBundleFingerprint",
+                "requestFingerprint",
+                "allocationFingerprint",
+                "systemId",
+                "correlationId",
+                "decisionId",
+                "authorityNamespace",
+                "issuerGeneration",
+                "signingKeyId",
+                "authorityRef",
+                "checkpointRef",
+                "committedAt",
+                "result",
+                "proof"
+            ],
+            "verification": "VerifiedActivationDecision checks both configured allocation and admission proofs and every binding/fingerprint. allowed commit is before original exclusive deadline; rejected history may be later. Same original history can reverify; changed body/operation cannot."
+        },
+        "VerifiedActivationAbsence": {
+            "purpose": "studentity.registration.activation-absence.v1",
+            "fields": [
+                "purpose",
+                "schemaVersion",
+                "operationId",
+                "authorityNamespace",
+                "issuerGeneration",
+                "signingKeyId",
+                "nonce",
+                "checkedAt",
+                "checkpointRef",
+                "historyComplete",
+                "result",
+                "proof"
+            ],
+            "verification": "Private construction after configured proof check, requested operation/nonce, historyComplete=true, and server lower/upper observation bounds. Absence at a point never permits a new operation or proves future noncommit."
+        },
+        "RegistrationActivationAuthority": {
+            "decide": "decide(ActivationCommand): ActivationDecision (raw DTO requires configured verification)",
+            "lookup": "lookup(operation UUID, fresh server nonce): ActivationLookup",
+            "default": "UnavailableRegistrationActivationAuthority throws ActivationAuthorityUnavailable on decide; lookup yields unknown only."
+        },
+        "ActivationLookup": {
+            "statuses": [
+                "unknown",
+                "committed",
+                "not-committed"
+            ],
+            "construction": "Private tagged union with private status/payload. notCommitted(operationId, expectedNonce, verifiedAbsence) checks operation and nonce. Every consumer must call resolveFor(operationId, expectedNonce, earliestCheck, latestCheck), which rechecks operation and challenged noncommit observation bounds even for a cached union. Committed historical decisions bind operation but do not imply fresh authorization. Neither status confirms current authorization or local account application."
+        },
+        "canonicalization": "Existing bounded 16KiB canonical JSON/JCS subset; exact closed schemaVersion=1, UUIDv4/digest/reference/time types; detached nested scalar snapshots. Top-level proof excluded from its own signed canonical body. Command fingerprint includes original nested proof. No key or secret choice from the wire.",
+        "clock_policy": "Strict UTC millisecond causal/deadline ordering, no implicit skew allowance. Production clock/trust configuration must be accepted before a real adapter. Historical proof verification never replaces current recovery/admission/issuer checks."
+    }
+}

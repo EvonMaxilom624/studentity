@@ -2,6 +2,12 @@
 
 This is Studentity, a university student-data system. The authoritative requirements are Studentity SRS v1.1; the architecture deviation is ADR-01/ADR-02 v1.0 (Laravel + MongoDB). Do not edit the SRS or Blueprint v0.1.
 
+The single maintained development handoff and execution checklist is [docs/handoffs/handout_codex.md](docs/handoffs/handout_codex.md). Read it before continuing work and update it as work advances; do not maintain competing assistant handoffs or roadmaps. Its approval checkpoints and protected-working-tree instructions remain in force.
+
+When consulting project references, check both sibling folders `../Documentations/` and `../Studentity_M0_Laravel_MongoDB_Approved_v1.0/`. Use the finalized SRS v1.1 in Documentations as requirements authority and the accepted ADRs/physical-model invariants in the approved package for the Laravel/MongoDB implementation. Distinguish historical artifact status from current verified repository evidence; preserve source documents unchanged.
+
+Use this repository's `master` branch directly for coding, as requested by the owner. Do not create additional feature branches, duplicate repositories, or isolated worktrees unless the owner explicitly requests a different workflow. Preserve existing uncommitted work; this branch policy does not authorize committing protected files or bypassing upgrade/feature approval checkpoints.
+
 - Use **synthetic data only**; never copy real student records, institution secrets or cloud credentials into code, tests, prompts or logs.
 - Preserve immutable source/version histories and the certificate one-slot-per-student-year invariant.
 - No student/administrator, uploads, certificates or public verification endpoints unless the applicable M0 security gate and tests pass.

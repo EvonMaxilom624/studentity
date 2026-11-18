@@ -80,4 +80,88 @@ final class M0MongoLiveIntegrationTest extends TestCase
             $session->endSession();
         }
     }
+
+    public function test_concurrent_issuance_transactions_enforce_single_slot_winner(): void
+    {
+        $db = $this->db();
+        $dsn = config('database.connections.mongodb.dsn');
+        $client1 = new Client($dsn);
+        $client2 = new Client($dsn);
+
+        $session1 = $client1->startSession();
+        $session2 = $client2->startSession();
+
+        $studentId = '123e4567-e89b-42d3-a456-' . bin2hex(random_bytes(6));
+        $yearId = '123e4567-e89b-42d3-a456-' . bin2hex(random_bytes(6));
+        $slotId = $studentId . ':' . $yearId;
+
+        $doc1 = [
+            '_id' => $slotId,
+            'student_id' => $studentId,
+            'academic_year_id' => $yearId,
+            'generation' => 1,
+            'schema_version' => 1,
+            'created_at' => new UTCDateTime(),
+            'updated_at' => new UTCDateTime(),
+        ];
+        $doc2 = [
+            '_id' => $slotId . '-candidate2',
+            'student_id' => $studentId,
+            'academic_year_id' => $yearId,
+            'generation' => 1,
+            'schema_version' => 1,
+            'created_at' => new UTCDateTime(),
+            'updated_at' => new UTCDateTime(),
+        ];
+
+        try {
+            $session1->startTransaction();
+            $client1->selectDatabase($db->getDatabaseName())
+                ->selectCollection('certificate_year_slots')
+                ->insertOne($doc1, ['session' => $session1]);
+
+            $session2->startTransaction();
+
+            $session2Failed = false;
+            try {
+                $client2->selectDatabase($db->getDatabaseName())
+                    ->selectCollection('certificate_year_slots')
+                    ->insertOne($doc2, ['session' => $session2, 'maxTimeMS' => 2000]);
+            } catch (\Exception $e) {
+                $session2Failed = true;
+            }
+
+            $session1->commitTransaction();
+
+            if (!$session2Failed) {
+                try {
+                    $session2->commitTransaction();
+                    self::fail('Expected session 2 commit to fail with write conflict or duplicate key');
+                } catch (\Exception $e) {
+                    $session2Failed = true;
+                }
+            }
+
+            self::assertTrue($session2Failed, 'Second concurrent certificate transaction was not rejected.');
+
+            $count = $db->selectCollection('certificate_year_slots')->countDocuments([
+                'student_id' => $studentId,
+                'academic_year_id' => $yearId,
+            ]);
+            self::assertSame(1, $count);
+        } finally {
+            if ($session1->isInTransaction()) {
+                $session1->abortTransaction();
+            }
+            if ($session2->isInTransaction()) {
+                $session2->abortTransaction();
+            }
+            $session1->endSession();
+            $session2->endSession();
+            $db->selectCollection('certificate_year_slots')->deleteMany([
+                'student_id' => $studentId,
+                'academic_year_id' => $yearId,
+            ]);
+        }
+    }
 }
