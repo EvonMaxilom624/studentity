@@ -1,0 +1,134 @@
+{
+  "proposal": "FND-04 handler acknowledgment/lookup protocol v1",
+  "date": "2026-11-19",
+  "status": "Pure closed contracts and unavailable default port only; no durable provider, worker adapter, persistence migration or production acceptance",
+  "source": [
+    "final SRS FR-OPS-002/003, NFR-OPS-001",
+    "accepted ADR-02",
+    "canonical M0/FND-04 handoff"
+  ],
+  "contracts": {
+    "JobItemCommand": {
+      "purpose": "studentity.job.item-command.v1",
+      "fields": [
+        "purpose",
+        "schemaVersion",
+        "authorityNamespace",
+        "expectedIssuerGeneration",
+        "jobOperationId",
+        "itemOperationId",
+        "targetId",
+        "jobFingerprint",
+        "itemFingerprint",
+        "correlationId",
+        "requestedBy",
+        "jobType"
+      ],
+      "binding": "Deterministic from original ReferenceJobCommand and exact member item plus trusted pinned destination. itemOperationId=original item.resultId. Hash full job and closed original item; no fresh timestamp/IDs on replay."
+    },
+    "JobItemReceipt": {
+      "purpose": "studentity.job.item-receipt.v1",
+      "fields": [
+        "purpose",
+        "schemaVersion",
+        "jobOperationId",
+        "itemOperationId",
+        "targetId",
+        "jobFingerprint",
+        "itemFingerprint",
+        "requestFingerprint",
+        "correlationId",
+        "requestedBy",
+        "jobType",
+        "result",
+        "errorCode",
+        "receiptId",
+        "authorityNamespace",
+        "issuerGeneration",
+        "signingKeyId",
+        "authorityRef",
+        "checkpointRef",
+        "committedAt",
+        "proof"
+      ],
+      "binding": "Configured namespace/generation/key proof; exact command tuple/actor/correlation and request fingerprint. Closed coherent JobItemOutcome. Original server-derived earliest commit <= committedAt <= current trusted observation; receipt fingerprint excludes its own proof."
+    },
+    "JobItemLookupQuery": {
+      "purpose": "studentity.job.item-lookup-query.v1",
+      "fields": [
+        "purpose",
+        "schemaVersion",
+        "authorityNamespace",
+        "expectedIssuerGeneration",
+        "jobOperationId",
+        "itemOperationId",
+        "requestFingerprint",
+        "nonce",
+        "issuedAt"
+      ],
+      "binding": "Exact original command/destination/item/job tuple plus fresh server nonce and canonical issuedAt. Full query fingerprint binds caller observation context."
+    },
+    "JobItemLookupResponse": {
+      "purpose": "studentity.job.item-lookup-response.v1",
+      "unknownFields": [
+        "purpose",
+        "schemaVersion",
+        "status"
+      ],
+      "evidencedFields": [
+        "purpose",
+        "schemaVersion",
+        "status",
+        "jobOperationId",
+        "itemOperationId",
+        "requestFingerprint",
+        "queryFingerprint",
+        "nonce",
+        "checkedAt",
+        "historyComplete",
+        "authorityNamespace",
+        "issuerGeneration",
+        "signingKeyId",
+        "authorityRef",
+        "checkpointRef",
+        "receipt",
+        "proof"
+      ],
+      "states": {
+        "unknown": "No evidence; no execute/retry grant.",
+        "committed": "Signed exact query/nonce/full-ledger statement with original signed receipt; nested receipt must reverify and commit no later than checkedAt.",
+        "not-committed": "Signed exact query/nonce/full-ledger statement with null receipt. Point-in-time absence only; never future absence or business permission."
+      }
+    },
+    "VerifiedJobItemReceipt": "Private construction; outcomeFor rechecks current caller command, trust policy and time bounds; no public positive status/body shortcut. Historical receipt never current authorization.",
+    "VerifiedJobItemLookup": "Private construction and private status/payload; resolveFor rechecks exact original command+query fingerprints, current trust, nonce and times on every consumption, including cached caps.",
+    "JobExecutionAuthority": {
+      "execute": "execute(JobItemCommand): JobItemReceipt (raw, configured verification required)",
+      "lookup": "lookup(JobItemLookupQuery): JobItemLookupResponse (raw, configured verification required)",
+      "default": "UnavailableJobExecutionAuthority: execute throws JobHandlerUnavailable; lookup returns unknown."
+    }
+  },
+  "proof_rules": [
+    "Reuse bounded16KiB canonical JSON; exact schemaVersion1, lowercase UUIDv4,64hex fingerprints/nonces, canonical UTC millisecond times and closed scalar/nested shapes.",
+    "Top-level proof excluded from its own signature; signed lookup includes full nested original receipt/proof. No algorithm/key selection from untrusted payload.",
+    "Caller supplies trusted original job/command commit lower bound and current observation upper bound; reject invalid windows and implicit clock skew.",
+    "Single pinned generation scope; rotation/revocation mismatch stays fenced, never silently rebuild/retarget the original command.",
+    "Unknown/no receipt may not be converted into definitive failure/success. False/incomplete/unsigned local absence is not noncommit.",
+    "Per-consumption lookup requires caller-owned active query and earliest acceptable challenge time: originalLower <= issuedAt <= checkedAt <= callerObservedAt; earliestLookup <= issuedAt. Receipt originalLower <= committedAt <= checkedAt.",
+    "A historical receipt and later lookup can have different signed checkpoint references; never infer ownership/currentness from reference strings. Reverify nested receipt key even if outer lookup key remains trusted."
+  ],
+  "future_provider_requirements": [
+    "Atomic per-original-item idempotency binds immutable command fingerprint and definitive result/receipt; a changed body under same item key must conflict.",
+    "Authenticated challenged complete history with durable retention, independent recovery/key ownership, prompt trust revocation and accepted cross-generation recovery.",
+    "Persist or recover the original item command/receipt, never regenerate dynamic values under the old key; handler I/O remains outside producer/outbox transactions.",
+    "Future reconciler: verify lookup; committed=>verify original receipt and current gates; unknown=>fence; authenticated noncommit=>only original idempotent execute after separate current authorization/recovery, then verify returned receipt.",
+    "No exactly-once claim for a remote non-idempotent effect. Item-key receipt uniqueness, custody and shared worker/outage/restore acceptance need a real durable provider."
+  ],
+  "non_goals": [
+    "No actual mail/payment/vendor/business handler.",
+    "No Mongo schema or accepted catalogue change.",
+    "No generic worker/ReferenceJobHandler behavior change or positive runtime handler binding.",
+    "No institutional policy, key owner, legal basis, production budget/region or approval selected."
+  ],
+  "rollback": "Selective source/handoff rollback after review; preserve all prior uncommitted code, receipts/original commands/audit evidence and protected archive. No data drop/cleanup."
+}

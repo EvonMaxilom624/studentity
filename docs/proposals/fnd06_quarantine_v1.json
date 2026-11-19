@@ -1,0 +1,52 @@
+{
+  "proposal": "FND-06 immutable private quarantine/scanner foundation v1",
+  "status": "Isolated synthetic foundation only. Real storage/scanner, OS ACLs, encryption/custody, durable scan-head/promotion and authorized ordinary delivery remain unaccepted.",
+  "basis": [
+    "Final SRS v1.1 FR-DOC-003/005/034/035, BR-042, NFR-SEC-005",
+    "Accepted ADR-01/ADR-02 private storage + stored_objects/security_checks/document_versions invariants"
+  ],
+  "ports": {
+    "PrivateQuarantineStore": [
+      "stage(originalMetadata, bytes)",
+      "readForScan(originalMetadata)"
+    ],
+    "FileSecurityScanner": [
+      "available(serverPolicy)",
+      "inspect(originalMetadata, exactBytes, serverPolicy, serviceGeneratedScanId)"
+    ],
+    "runtime": "Bind unavailable ports only. No default positive disk/scanner/gate/policy/clock."
+  },
+  "original_reference": [
+    "UUID object/document-version/owner",
+    "SHA256 digest and byte count",
+    "declared supported media type",
+    "versioned canonical fingerprint; callers never select filesystem path, object key or original filename"
+  ],
+  "lab_storage": {
+    "location": "storage/framework/testing/fnd06-quarantine-v1/{server UUID namespace}/{original object UUID}.bin",
+    "isolation": "Testing guard, explicit install, no configured local-disk/public-root/link overlap; validate current roots/ancestors/files each operation with Windows-aware segment matching. No Laravel Storage fallback, URL/public read/delete/release methods.",
+    "immutability": "Exclusive-create bounded record binds full original metadata fingerprint and bytes. Identical replay succeeds. Conflicting owner/version/type/digest/body or incomplete record fences, never overwrites/repairs/deletes.",
+    "limit": "64KiB synthetic cap only. FR-DOC-005 proposed initial limits are 5MB JPG/JPEG/PNG portrait,10MB JPG/JPEG/PNG document scan,20MB PDF, subject to university-approved actual type/structure/size policy. This lab cap does not adopt or activate production limits.",
+    "limitations": "PHP path checks and mode bits do not certify Windows ACLs, encryption, hostile same-OS-user races or web-server configuration; no real files or students permitted. Retain all partial/unknown-effect evidence."
+  },
+  "scan_orchestration": [
+    "Only server-resolved metadata/current permission gate and current explicit policy/clock. Denied permission or scanner outage prevents scanner byte handoff.",
+    "Read immutable snapshot; independently compare exact size/SHA before scanner. Recheck permission, policy fingerprint, scanner availability and budget after both I/O phases.",
+    "Fresh service-owned scan UUID must be echoed exactly; object/policy fingerprints, scanner and malware-definition version, time window and actual media/type/structure/malware/active-content checks must match. No cached clean fallback.",
+    "Budget uses trusted wall observations plus monotonic elapsed time. Synchronous late-result rejection cannot cancel a hung scanner; real transport deadline/cancellation remains pending.",
+    "Clean/unsafe output is bounded scan metadata only. No ordinary bytes, permission, persisted security-cleared state or academic authenticity decision. Error/unavailable/uncertainty remain quarantined with redacted exceptions.",
+    "signatureVersion is the malware-definition version, not cryptographic authentication. A future real adapter must have independently reviewed trust, pins, freshness and rollback behavior."
+  ],
+  "durable_followup": [
+    "Persist exact original scan command/IDs and current version/object binding before external scan I/O; atomic append-only scan history plus scan-head/state/audit/outbox reconciliation in a separately reviewed isolated schema.",
+    "Conditional promotion requires current latest scan, policy/definition state, original checksum, object/version ownership, current authorization and recovery consistency; older clean cannot overwrite newer unsafe/error/revocation.",
+    "Files remain private after security clearance. Ordinary authenticated delivery must recheck current role/record permission, quarantine/scan and policy state; no existing generic signed-storage URL is a delivery authorization.",
+    "Preserve originals; optimized previews are separate immutable objects. No quality/authenticity/academic acceptance from scanner clean. Unsafe replacement/isolation/notification/retention/disposal require approved procedures."
+  ],
+  "activation_acceptance": [
+    "Approved actual file-type/structure/size rules and limits, private storage region/provider/budget, least privilege/encryption/key custody, quarantine ACLs and scanner/definition ownership.",
+    "Two-instance outage/retry/lost-ACK/restore/key-or-definition rollover acceptance and current revocation evidence; local Mongo/filesystem consistency is not independent recovery truth.",
+    "All required M0 session/security/governance gates, approved metadata transitions, durable scan history/outbox and authorized delivery/negative tests before any business upload/preview/download endpoint."
+  ],
+  "rollback": "Selective reviewed source restoration only; retain bytes/partial records/audit/receipts/evidence. No automatic cleanup, TTL, destructive Mongo operation or accepted schema/config change."
+}

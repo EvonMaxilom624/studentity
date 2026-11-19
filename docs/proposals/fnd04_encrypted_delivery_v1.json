@@ -1,0 +1,61 @@
+{
+  "proposal": "FND-04 encrypted consequential-delivery design v1",
+  "status": "Design only; no real transport, schema install, global limits or operational acceptance",
+  "basis": [
+    "SRS v1.1 FR-NOT-003/004/005/006, NFR-OPS-001/002",
+    "Accepted ADR-01/ADR-02; immutable source documents unchanged"
+  ],
+  "outbox_contract": {
+    "scope": "A separate future delivery job type must be reviewed; existing synthetic.reference-check.v1 cannot deliver notices.",
+    "references_only": [
+      "original operation/item/attempt/audit IDs",
+      "opaque encrypted-envelope handle",
+      "purpose and approved template version",
+      "keyed recipient fingerprint and dedup scope",
+      "approved policy reference/version; expires-at reference"
+    ],
+    "forbidden": [
+      "OTP/password/token",
+      "email body/address or confidential attachment",
+      "encryption key material or provider credentials",
+      "student private records in job/audit/session/journal"
+    ]
+  },
+  "envelope": {
+    "storage": "Dedicated private encrypted envelope, never outbox/audit/session/journal payload. Approved short lifetime, authenticated context binding to original operation/item/purpose/recipient/template, key version and expiry.",
+    "ownership": "Custody, cipher/KMS, region, retention, expiry policy and decrypting transport principal unselected; fail closed if any required owner/policy missing.",
+    "access": "Least-privilege sender fetches only its bound handle; deny missing/expired/revoked/mismatched envelope. Quarantine unresolved effects; retain redacted recovery evidence.",
+    "rollback": "Disable new admission; retain unresolved operation/receipt evidence and encrypted envelopes per approved policy. Never automatically purge or resend."
+  },
+  "retry_and_reconciliation": [
+    "Persist immutable original send command before I/O and use accepted provider atomic idempotency or equivalent independently reviewed delivery semantics.",
+    "Lookup unknown or unavailable is unresolved; never automatic resend or success. Fresh signed complete-history noncommit is point-in-time evidence only.",
+    "Resend must preserve original intent/OTP lineage or create an explicitly authorized new operation; never reset failed-attempt or global-rate state by changing workers, sessions or request IDs.",
+    "Current recipient/purpose/notice approval, suppression, expiry, dedup and global throttle gates must all pass before send. Historical receipt is not current permission.",
+    "Consequential delivery tracks original attempt IDs, template version, timestamps, retry/failure state and redacted audit per FR-NOT-006."
+  ],
+  "global_throttle": {
+    "scope": "Shared durable admission across workers and instances, across start/resend/retry; enforce keyed recipient, purpose, intent/account and deployment-wide policy scopes. No unkeyed identity leakage.",
+    "atomicity": "Atomic reservation with original operation/item and idempotent replay; no per-process fallback. Unknown reservation/send state needs reconciliation, never reset or bypass.",
+    "policy": "Counts, windows, backoff, retry ceiling, expiry, budgets and escalation require approved policy. Unavailable/changed/revoked policy or clock/recovery uncertainty denies. No numerical production limits invented."
+  },
+  "activation_acceptance": [
+    "Institutional notices/G-05 and privacy/legal-basis approvals; sender/recipient purposes and approved template versions",
+    "Independent provider ownership/keys/generations/revocation, custody, hosting/region/budget and approved transport confidentiality",
+    "Two-instance shared admission/dedup with lost ACK, outage, restore rollback, key rotation/revocation and clock rollback; no cached fallback grant",
+    "SMTP/provider commit ambiguity explicitly characterized; local Mongo marker atomicity does not prove exactly-once email delivery",
+    "Independent recovery baseline and evidence survive database and provider restores; same-server logical namespaces insufficient",
+    "Database and private-file backups, including approved encrypted delivery envelope storage, are encrypted, access-controlled, regularly performed, monitored, copied off-site and periodically restored in documented tests (NFR-OPS-002); custody/retention/region remain approval gates."
+  ],
+  "not_implemented": [
+    "Email/SMTP/provider dispatch",
+    "Encryption or secrets provider",
+    "Delivery envelope database migration",
+    "Production throttling limits or resend/expiry policy"
+  ],
+  "recipient_message_constraints": {
+    "confidentiality": "Recipient-facing messages, including decrypted send payloads, exclude confidential document contents, accusations, full identity records and private interview details (FR-NOT-004). Encryption at rest does not authorize confidential email content.",
+    "destinations": "Messages provide task-relevant destinations; every destination exposing private details requires current authentication and record permission (FR-NOT-005). No public private-detail links or bearer shortcut.",
+    "acceptance": "Review approved template versions and negative examples before transport activation; purpose/recipient binding does not replace content or destination review."
+  }
+}

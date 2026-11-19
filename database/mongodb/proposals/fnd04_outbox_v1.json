@@ -1,0 +1,681 @@
+{
+  "proposal": "FND-04 isolated reference-job outbox v1",
+  "status": "Design for isolated synthetic integration only; no runtime/production activation",
+  "database": "studentity_test_fnd04_outbox_v1",
+  "basis": [
+    "FR-OPS-001/002/003/014",
+    "NFR-OPS-001",
+    "accepted ADR-02",
+    "accepted background_jobs/job_results/audit_events field names"
+  ],
+  "deviations": [
+    "Closed synthetic-only job schema with explicit policy/lease/revision/command-hash/audit-head fields; accepted catalogue unchanged.",
+    "One physical equivalent job-result unique index, matching accepted migration alias handling.",
+    "Reference-only canonical command and bounded synthetic outcomes; no mail secret payload."
+  ],
+  "collections": [
+    {
+      "name": "background_jobs",
+      "options": {
+        "validator": {
+          "$and": [
+            {
+              "$jsonSchema": {
+                "bsonType": "object",
+                "additionalProperties": false,
+                "required": [
+                  "_id",
+                  "schema_version",
+                  "job_type",
+                  "idempotency_key",
+                  "status",
+                  "payload_redacted",
+                  "command_fingerprint",
+                  "attempt_count",
+                  "max_attempts",
+                  "policy_ref",
+                  "lease_milliseconds",
+                  "revision",
+                  "audit_sequence",
+                  "audit_head_hash",
+                  "created_at",
+                  "reserved_audit_ids"
+                ],
+                "properties": {
+                  "_id": {
+                    "bsonType": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "schema_version": {
+                    "bsonType": "int",
+                    "enum": [
+                      1
+                    ]
+                  },
+                  "job_type": {
+                    "bsonType": "string",
+                    "enum": [
+                      "synthetic.reference-check.v1"
+                    ]
+                  },
+                  "idempotency_key": {
+                    "bsonType": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "status": {
+                    "bsonType": "string",
+                    "enum": [
+                      "queued",
+                      "running",
+                      "succeeded",
+                      "failed",
+                      "partial_failure"
+                    ]
+                  },
+                  "payload_redacted": {
+                    "bsonType": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "purpose",
+                      "schemaVersion",
+                      "operationId",
+                      "correlationId",
+                      "enqueueAuditId",
+                      "requestedBy",
+                      "jobType",
+                      "items",
+                      "finishAuditId"
+                    ],
+                    "properties": {
+                      "purpose": {
+                        "bsonType": "string",
+                        "enum": [
+                          "studentity.job.command.v1"
+                        ]
+                      },
+                      "schemaVersion": {
+                        "bsonType": "int",
+                        "enum": [
+                          1
+                        ]
+                      },
+                      "operationId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "correlationId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "enqueueAuditId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "requestedBy": {
+                        "bsonType": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "jobType": {
+                        "bsonType": "string",
+                        "enum": [
+                          "synthetic.reference-check.v1"
+                        ]
+                      },
+                      "items": {
+                        "bsonType": "array",
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "items": {
+                          "bsonType": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "targetId",
+                            "resultId",
+                            "auditId"
+                          ],
+                          "properties": {
+                            "targetId": {
+                              "bsonType": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                            },
+                            "resultId": {
+                              "bsonType": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                            },
+                            "auditId": {
+                              "bsonType": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                            }
+                          }
+                        }
+                      },
+                      "finishAuditId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      }
+                    }
+                  },
+                  "command_fingerprint": {
+                    "bsonType": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "attempt_count": {
+                    "bsonType": "int",
+                    "minimum": 0,
+                    "maximum": 10
+                  },
+                  "max_attempts": {
+                    "bsonType": "int",
+                    "minimum": 1,
+                    "maximum": 10
+                  },
+                  "policy_ref": {
+                    "bsonType": "string",
+                    "enum": [
+                      "synthetic-job-policy-v1"
+                    ]
+                  },
+                  "lease_milliseconds": {
+                    "bsonType": "int",
+                    "minimum": 1,
+                    "maximum": 86400000
+                  },
+                  "revision": {
+                    "bsonType": "long",
+                    "minimum": 0,
+                    "maximum": {
+                      "$numberLong": "9223372036854775807"
+                    }
+                  },
+                  "audit_sequence": {
+                    "bsonType": "long",
+                    "minimum": 0,
+                    "maximum": {
+                      "$numberLong": "9223372036854775807"
+                    }
+                  },
+                  "audit_head_hash": {
+                    "bsonType": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "created_at": {
+                    "bsonType": "date"
+                  },
+                  "lease_token": {
+                    "bsonType": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "lease_until": {
+                    "bsonType": "date"
+                  },
+                  "finished_at": {
+                    "bsonType": "date"
+                  },
+                  "reserved_audit_ids": {
+                    "bsonType": "array",
+                    "minItems": 3,
+                    "maxItems": 102,
+                    "items": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    }
+                  }
+                },
+                "oneOf": [
+                  {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "queued"
+                        ]
+                      }
+                    },
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "lease_token"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "lease_until"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "finished_at"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "running"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "lease_token",
+                      "lease_until"
+                    ],
+                    "not": {
+                      "required": [
+                        "finished_at"
+                      ]
+                    }
+                  },
+                  {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "succeeded",
+                          "failed",
+                          "partial_failure"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "finished_at"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "lease_token"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "lease_until"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "$expr": {
+                "$and": [
+                  {
+                    "$eq": [
+                      "$_id",
+                      "$idempotency_key"
+                    ]
+                  },
+                  {
+                    "$eq": [
+                      "$_id",
+                      "$payload_redacted.operationId"
+                    ]
+                  },
+                  {
+                    "$lte": [
+                      "$attempt_count",
+                      "$max_attempts"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "validationLevel": "strict",
+        "validationAction": "error"
+      },
+      "indexes": [
+        {
+          "name": "uq_idempotency_key",
+          "keys": {
+            "idempotency_key": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "ix_pending_operations",
+          "keys": {
+            "status": 1,
+            "created_at": 1
+          }
+        },
+        {
+          "name": "uq_original_item_operation",
+          "keys": {
+            "payload_redacted.items.resultId": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "uq_reserved_job_audit_id",
+          "keys": {
+            "reserved_audit_ids": 1
+          },
+          "unique": true
+        }
+      ],
+      "ttl": false
+    },
+    {
+      "name": "job_results",
+      "options": {
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "schema_version",
+              "job_id",
+              "target_ref",
+              "command_fingerprint",
+              "result",
+              "error_code",
+              "attempted_at",
+              "outcome_fingerprint"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "schema_version": {
+                "bsonType": "int",
+                "enum": [
+                  1
+                ]
+              },
+              "job_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "target_ref": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "command_fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "result": {
+                "bsonType": "string",
+                "enum": [
+                  "succeeded",
+                  "failed",
+                  "skipped"
+                ]
+              },
+              "error_code": {
+                "bsonType": "string",
+                "enum": [
+                  "none",
+                  "synthetic_failure",
+                  "not_applicable"
+                ]
+              },
+              "attempted_at": {
+                "bsonType": "date"
+              },
+              "outcome_fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "succeeded"
+                    ]
+                  },
+                  "error_code": {
+                    "enum": [
+                      "none"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "failed"
+                    ]
+                  },
+                  "error_code": {
+                    "enum": [
+                      "synthetic_failure"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "skipped"
+                    ]
+                  },
+                  "error_code": {
+                    "enum": [
+                      "not_applicable"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "validationLevel": "strict",
+        "validationAction": "error"
+      },
+      "indexes": [
+        {
+          "name": "uq_job_id_target_ref",
+          "keys": {
+            "job_id": 1,
+            "target_ref": 1
+          },
+          "unique": true
+        }
+      ],
+      "ttl": false
+    },
+    {
+      "name": "audit_events",
+      "options": {
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "schema_version",
+              "action",
+              "target_type",
+              "target_id",
+              "correlation_id",
+              "job_sequence",
+              "event_redacted",
+              "prior_hash",
+              "event_hash",
+              "occurred_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "schema_version": {
+                "bsonType": "int",
+                "enum": [
+                  1
+                ]
+              },
+              "action": {
+                "bsonType": "string",
+                "enum": [
+                  "job.queued",
+                  "job.claimed",
+                  "job.item-completed",
+                  "job.finished"
+                ]
+              },
+              "target_type": {
+                "bsonType": "string",
+                "enum": [
+                  "background_job"
+                ]
+              },
+              "target_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "correlation_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "actor_user_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "job_sequence": {
+                "bsonType": "long",
+                "minimum": 0,
+                "maximum": {
+                  "$numberLong": "9223372036854775807"
+                }
+              },
+              "event_redacted": {
+                "bsonType": "object",
+                "additionalProperties": false,
+                "required": [
+                  "commandFingerprint",
+                  "sequence",
+                  "attempt",
+                  "itemId",
+                  "outcome",
+                  "policyFingerprint",
+                  "leaseTokenHash",
+                  "leaseUntil",
+                  "outcomeFingerprint"
+                ],
+                "properties": {
+                  "commandFingerprint": {
+                    "bsonType": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "sequence": {
+                    "bsonType": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "attempt": {
+                    "bsonType": "int",
+                    "minimum": 0,
+                    "maximum": 10
+                  },
+                  "itemId": {
+                    "bsonType": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "outcome": {
+                    "bsonType": "string",
+                    "enum": [
+                      "queued",
+                      "claimed",
+                      "succeeded",
+                      "failed",
+                      "skipped",
+                      "partial_failure"
+                    ]
+                  },
+                  "policyFingerprint": {
+                    "bsonType": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "leaseTokenHash": {
+                    "bsonType": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "leaseUntil": {
+                    "bsonType": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+                  },
+                  "outcomeFingerprint": {
+                    "bsonType": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "prior_hash": {
+                "bsonType": "binData"
+              },
+              "event_hash": {
+                "bsonType": "binData"
+              },
+              "occurred_at": {
+                "bsonType": "date"
+              }
+            }
+          }
+        },
+        "validationLevel": "strict",
+        "validationAction": "error"
+      },
+      "indexes": [
+        {
+          "name": "ix_audit_time",
+          "keys": {
+            "occurred_at": 1
+          }
+        },
+        {
+          "name": "uq_job_audit_sequence",
+          "keys": {
+            "target_id": 1,
+            "job_sequence": 1
+          },
+          "unique": true
+        }
+      ],
+      "ttl": false
+    }
+  ],
+  "guarantees": [
+    "Atomic enqueue+audit; same operation requires exact original command.",
+    "Immutable per-item outcome and append-oriented per-job hash chain updated in one transaction with job head.",
+    "Primary/snapshot/majority; DB-clock bounded token+generation leases; unknown/exhausted outcomes remain unresolved, never fabricated terminal success.",
+    "Only a separately accepted idempotent handler may cause real external effects; no network in Mongo transactions.",
+    "Policy snapshot is pinned and audit committed; claim event binds token hash/generation/deadline.",
+    "Unique multikey reservations claim item-operation/audit IDs before handler execution; intra-command duplicates also reject.",
+    "Last result, terminal aggregate and final audit event commit atomically, including at last allowed attempt.",
+    "Aggregate truth: no failures (including all skipped) => succeeded; all failed => failed; otherwise partial_failure.",
+    "Full immutable result including timestamp and exact result/error pair is committed by the item audit fingerprint and checked bidirectionally."
+  ],
+  "limits": [
+    "100 items/16KiB is a lab resource bound, not university batch policy.",
+    "Local hashes/leases are not independent recovery truth or production tamper-proof storage.",
+    "Actual key/clock policy, worker deployment, global rate policy, delivery custody and external anchors remain gates."
+  ],
+  "rollback": "Fence worker; retain commands/results/audit/unknown-effect evidence. Selective source rollback only; no drop/down cleanup."
+}

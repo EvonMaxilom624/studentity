@@ -1,0 +1,35 @@
+{
+  "proposal": "Isolated original scan command persistence; no clearance or runtime binding",
+  "database": "studentity_test_fnd06_scan_commands_v1",
+  "options": {
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "additionalProperties": false,
+        "required": [
+          "_id",
+          "wire",
+          "fingerprint"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "wire": {
+            "bsonType": "string",
+            "maxLength": 8192
+          },
+          "fingerprint": {
+            "bsonType": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error"
+  },
+  "indexes": [],
+  "rollback": "Retain all original commands; no TTL/down/repair/deletion. Selective source restore only."
+}

@@ -1,0 +1,288 @@
+{
+  "proposal": "FND-04 handler reconciliation local synthetic lab v1",
+  "status": "Unbound; no production or independent restore acceptance",
+  "targets": {
+    "studentity_test_fnd04_handler_v1": [
+      {
+        "name": "handler_items_v1",
+        "options": {
+          "validator": {
+            "$and": [
+              {
+                "$jsonSchema": {
+                  "bsonType": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "_id",
+                    "schema_version",
+                    "job_wire",
+                    "job_hash",
+                    "command_wire",
+                    "command_hash",
+                    "original_created_at",
+                    "receipt_wire",
+                    "receipt_hash"
+                  ],
+                  "properties": {
+                    "_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "schema_version": {
+                      "bsonType": "int",
+                      "enum": [
+                        1
+                      ]
+                    },
+                    "job_wire": {
+                      "bsonType": "string",
+                      "minLength": 1,
+                      "maxLength": 32768
+                    },
+                    "job_hash": {
+                      "bsonType": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "command_wire": {
+                      "bsonType": "string",
+                      "minLength": 1,
+                      "maxLength": 32768
+                    },
+                    "command_hash": {
+                      "bsonType": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "original_created_at": {
+                      "bsonType": "date"
+                    },
+                    "receipt_wire": {
+                      "bsonType": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 32768
+                    },
+                    "receipt_hash": {
+                      "bsonType": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  }
+                }
+              },
+              {
+                "$expr": {
+                  "$eq": [
+                    {
+                      "$eq": [
+                        "$receipt_wire",
+                        null
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        "$receipt_hash",
+                        null
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "validationLevel": "strict",
+          "validationAction": "error"
+        },
+        "indexes": []
+      }
+    ],
+    "studentity_test_fnd04_provider_v1": [
+      {
+        "name": "item_controls_v1",
+        "options": {
+          "validator": {
+            "$and": [
+              {
+                "$jsonSchema": {
+                  "bsonType": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "_id",
+                    "job_operation_id",
+                    "request_fingerprint",
+                    "authority_namespace",
+                    "issuer_generation",
+                    "revision",
+                    "state",
+                    "updated_at"
+                  ],
+                  "properties": {
+                    "_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "job_operation_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "request_fingerprint": {
+                      "bsonType": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "authority_namespace": {
+                      "bsonType": "string",
+                      "minLength": 1,
+                      "maxLength": 32768
+                    },
+                    "issuer_generation": {
+                      "bsonType": "string",
+                      "minLength": 1,
+                      "maxLength": 32768
+                    },
+                    "revision": {
+                      "bsonType": "long",
+                      "minimum": 0
+                    },
+                    "state": {
+                      "bsonType": "string",
+                      "enum": [
+                        "observed",
+                        "committed"
+                      ]
+                    },
+                    "updated_at": {
+                      "bsonType": "date"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "validationLevel": "strict",
+          "validationAction": "error"
+        },
+        "indexes": []
+      },
+      {
+        "name": "executions_v1",
+        "options": {
+          "validator": {
+            "$and": [
+              {
+                "$jsonSchema": {
+                  "bsonType": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "_id",
+                    "command_wire",
+                    "command_hash",
+                    "receipt_wire",
+                    "receipt_hash",
+                    "receipt_id",
+                    "committed_at"
+                  ],
+                  "properties": {
+                    "_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "command_wire": {
+                      "bsonType": "string",
+                      "minLength": 1,
+                      "maxLength": 32768
+                    },
+                    "command_hash": {
+                      "bsonType": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "receipt_wire": {
+                      "bsonType": "string",
+                      "minLength": 1,
+                      "maxLength": 32768
+                    },
+                    "receipt_hash": {
+                      "bsonType": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "receipt_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "committed_at": {
+                      "bsonType": "date"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "validationLevel": "strict",
+          "validationAction": "error"
+        },
+        "indexes": [
+          {
+            "keys": {
+              "receipt_id": 1
+            },
+            "name": "handler_receipt_unique",
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "effects_v1",
+        "options": {
+          "validator": {
+            "$and": [
+              {
+                "$jsonSchema": {
+                  "bsonType": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "_id",
+                    "job_operation_id",
+                    "target_id",
+                    "request_fingerprint",
+                    "marker_hash",
+                    "recorded_at"
+                  ],
+                  "properties": {
+                    "_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "job_operation_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "target_id": {
+                      "bsonType": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "request_fingerprint": {
+                      "bsonType": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "marker_hash": {
+                      "bsonType": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "recorded_at": {
+                      "bsonType": "date"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "validationLevel": "strict",
+          "validationAction": "error"
+        },
+        "indexes": []
+      }
+    ]
+  },
+  "rollback": "Retain all lab data/evidence; no automatic down/repair/TTL. Selective source rollback after review only."
+}
