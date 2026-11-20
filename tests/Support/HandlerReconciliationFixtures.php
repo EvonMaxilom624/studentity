@@ -17,6 +17,7 @@ use App\Infrastructure\Jobs\MongoSyntheticJobExecutionAuthority;
 use App\Infrastructure\Jobs\ReceiptAwareJobHandler;
 use MongoDB\Client;
 use MongoDB\Database;
+use PHPUnit\Framework\AssertionFailedError;
 
 trait HandlerReconciliationFixtures
 {
@@ -113,6 +114,8 @@ trait HandlerReconciliationFixtures
     {
         try {
             $work();
+        } catch (AssertionFailedError $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return $e;
         }

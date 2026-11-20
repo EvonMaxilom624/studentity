@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use App\Domain\Documents\AttemptCorrelatedFileSecurityScanner;
 use App\Domain\Documents\FileScanPolicy;
 use App\Domain\Documents\FileScanResult;
 use App\Domain\Documents\FileSecurityScanner;
 use App\Domain\Documents\PrivateQuarantineStore;
 use App\Domain\Documents\QuarantineInspectionService;
 use App\Domain\Documents\QuarantineObjectReference;
+use PHPUnit\Framework\AssertionFailedError;
 
 /** Synthetic assertions only; no real malware detection or production policy is claimed. */
 trait FileSecurityFixtures
@@ -58,7 +60,7 @@ trait FileSecurityFixtures
 
     private function fileScanner(?\Closure $scan = null, ?\Closure $health = null): FileSecurityScanner
     {
-        return new class($scan ?? fn ($o, $b, $p, $id) => $this->fileResult($o, $p, ['scanId' => $id]), $health ?? fn () => true) implements FileSecurityScanner
+        return new class($scan ?? fn ($o, $b, $p, $id) => $this->fileResult($o, $p, ['scanId' => $id]), $health ?? fn () => true) implements AttemptCorrelatedFileSecurityScanner
         {
             public int $scans = 0;
 
@@ -71,6 +73,14 @@ trait FileSecurityFixtures
                 $this->healthChecks++;
 
                 return ($this->health)($policy);
+            }
+
+            /** Explicit synthetic capability adapter; real adapters must authenticate their own response binding. */
+            public function inspectAttempt(QuarantineObjectReference $object, #[\SensitiveParameter] string $bytes, FileScanPolicy $policy, string $scanId, string $attemptNonce): FileScanResult
+            {
+                $result = $this->inspect($object, $bytes, $policy, $scanId);
+
+                return new FileScanResult(...array_replace(get_object_vars($result), ['attemptNonce' => $result->attemptNonce ?? $attemptNonce]));
             }
 
             public function inspect(QuarantineObjectReference $object, #[\SensitiveParameter] string $bytes, FileScanPolicy $policy, string $scanId): FileScanResult
@@ -91,6 +101,8 @@ trait FileSecurityFixtures
     {
         try {
             $work();
+        } catch (AssertionFailedError $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return $e;
         }

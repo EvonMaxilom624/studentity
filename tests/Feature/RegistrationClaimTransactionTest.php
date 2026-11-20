@@ -167,6 +167,8 @@ final class RegistrationClaimTransactionTest extends TestCase
             self::assertTrue($workers[0]->isRunning());
             self::assertTrue($workers[1]->isRunning());
             self::assertSame($race === 'last-attempt' ? 2 : 0, $this->registrationDb()->registration_challenges_v1->findOne(['_id' => $ch])['attempts']);
+            self::assertFileDoesNotExist($barrier.'/0.entered');
+            self::assertFileDoesNotExist($barrier.'/1.entered');
             file_put_contents($barrier.'/release', 'release', LOCK_EX);
             $wins = 0;
             foreach ($workers as $w) {

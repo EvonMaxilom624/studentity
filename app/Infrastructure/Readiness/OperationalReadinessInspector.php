@@ -111,7 +111,7 @@ final readonly class OperationalReadinessInspector
             ['deployment-acceptance', ['FND-05', 'ADR-01', 'NFR-OPS-002', 'NFR-OPS-003'], [
                 'Institutional privacy/security/release approvals, approved hosting/region/budget/provider ownership and least-privilege deployment configuration.',
                 'Database/private-file backups encrypted, access-controlled, scheduled, monitored, off-site and periodically restored in documented tests.',
-                'Measured and institutionally approved RPO/RTO, reproducible exact artifacts and secure CI/release review; synthetic tests cannot sign operational acceptance.',
+                'SRS NFR-OPS-003 initial RPO/RTO design targets <=24 hours alongside measured institutionally approved deployed objectives, reproducible exact artifacts and secure CI/release review; synthetic tests cannot sign operational acceptance.',
             ]],
         ];
 

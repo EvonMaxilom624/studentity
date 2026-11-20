@@ -136,14 +136,20 @@ final class JobHandlerProtocolTest extends TestCase
         $wire = $raw->wire();
         $receipt['result'] = 'failed';
         self::assertSame($wire, $raw->wire());
-        foreach (['{"purpose":"x","purpose":"y"}', str_repeat(' ', 16385)] as $bad) {
-            $error = null;
-            try {
-                JobItemLookupResponse::fromJson($bad);
-            } catch (\InvalidArgumentException $e) {
-                $error = $e;
-            }self::assertNotNull($error);
+        $dupError = null;
+        try {
+            JobItemLookupResponse::fromJson('{"purpose":"x","purpose":"y"}');
+        } catch (\InvalidArgumentException $e) {
+            $dupError = $e;
         }
+        self::assertInstanceOf(\InvalidArgumentException::class, $dupError);
+        $oversizeError = null;
+        try {
+            JobItemLookupResponse::fromJson(str_repeat(' ', 16385));
+        } catch (\InvalidArgumentException $e) {
+            $oversizeError = $e;
+        }
+        self::assertInstanceOf(\InvalidArgumentException::class, $oversizeError);
         $data = $this->itemCommand()->data;
         $data['otp'] = '123456';
         $this->expectException(\InvalidArgumentException::class);
@@ -218,9 +224,9 @@ final class JobHandlerProtocolTest extends TestCase
         $d = json_decode(file_get_contents(dirname(__DIR__, 2).'/docs/proposals/fnd04_handler_protocol_v1.json'), true, 128, JSON_THROW_ON_ERROR);
         foreach (['JobItemCommand' => $this->itemCommand()->data, 'JobItemReceipt' => $this->receipt()->data, 'JobItemLookupQuery' => $this->protocolQuery()->data] as $name => $fields) {
             self::assertEqualsCanonicalizing($d['contracts'][$name]['fields'], array_keys($fields));
-            self::assertSame($d['contracts'][$name]['purpose'],$fields['purpose']);
+            self::assertSame($d['contracts'][$name]['purpose'], $fields['purpose']);
         }
-        self::assertEqualsCanonicalizing($d['contracts']['JobItemLookupResponse']['evidencedFields'],array_keys($this->lookup()->data));
-        self::assertEqualsCanonicalizing($d['contracts']['JobItemLookupResponse']['unknownFields'],array_keys($this->lookup('unknown')->data));
+        self::assertEqualsCanonicalizing($d['contracts']['JobItemLookupResponse']['evidencedFields'], array_keys($this->lookup()->data));
+        self::assertEqualsCanonicalizing($d['contracts']['JobItemLookupResponse']['unknownFields'], array_keys($this->lookup('unknown')->data));
     }
 }

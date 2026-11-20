@@ -110,7 +110,11 @@ final class OutboxProducerTransactionTest extends TestCase
         $c = $this->command(1);
         $row = $this->producerRow($c);
         $apply = $this->apply($row);
-        $r = $this->ownedRepo(fault: in_array($stage, ['enqueue', 'produce'], true) ? static function ($s) use ($stage) {
+        $faultCalls = 0;
+        $faultStage = null;
+        $r = $this->ownedRepo(fault: in_array($stage, ['enqueue', 'produce'], true) ? static function ($s) use ($stage, &$faultCalls, &$faultStage) {
+            $faultCalls++;
+            $faultStage = $s;
             if ($s === $stage) {
                 throw new \RuntimeException('synthetic transaction abort');
             }
@@ -124,6 +128,12 @@ final class OutboxProducerTransactionTest extends TestCase
             return true;
         }, $this->verify($row)));
         self::assertInstanceOf(\RuntimeException::class, $error);
+        if (in_array($stage, ['enqueue', 'produce'], true)) {
+            self::assertSame($stage === 'produce' ? 2 : 1, $faultCalls);
+            self::assertSame($stage, $faultStage);
+        } else {
+            self::assertSame(0, $faultCalls);
+        }
         self::assertNull($this->fresh($this->producer)->users->findOne(['_id' => $row['_id']]));
         self::assertNull($this->fresh($this->outbox)->background_jobs->findOne(['_id' => $c->data['operationId']]));
         self::assertSame(0, $this->fresh($this->outbox)->audit_events->countDocuments(['target_id' => $c->data['operationId']]));
@@ -350,6 +360,7 @@ final class OutboxProducerTransactionTest extends TestCase
             return true;
         });
         self::assertSame(2, $attempts);
+        self::assertSame(2, $hookCalls);
         self::assertNotSame($contexts[0], $contexts[1]);
         foreach ($contexts as $context) {
             self::assertNotNull($this->capture(fn () => $context->optionsFor($this->outbox)));
@@ -425,7 +436,7 @@ final class OutboxProducerTransactionTest extends TestCase
                 return false;
             }
 
-return true;
+            return true;
         }, $this->verify($row)));
         self::assertSame(2, $calls);
         self::assertSame(1, $this->fresh($this->producer)->users->countDocuments(['_id' => $row['_id']]));

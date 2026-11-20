@@ -207,9 +207,15 @@ final class AuthorityPageRecoveryLabTest extends TestCase
     {
         $recovery = $this->recovery([]);
         self::assertTrue($recovery->isFullyReconciled());
+        $journalCountBefore = $this->database->selectCollection('security_decision_journal')->countDocuments();
+        $sessionsCountBefore = $this->database->selectCollection('user_sessions')->countDocuments();
+        $auditCountBefore = $this->database->selectCollection('audit_events')->countDocuments();
         self::assertSame('page-applied', $recovery->apply($this->page([], ['anchorRef' => 'barrier-0', 'fromRef' => 'barrier-0', 'toRef' => 'barrier-0']), $this->nonce('page')));
         self::assertSame('0', $recovery->position());
         self::assertSame([], $this->operations);
+        self::assertSame($journalCountBefore, $this->database->selectCollection('security_decision_journal')->countDocuments());
+        self::assertSame($sessionsCountBefore, $this->database->selectCollection('user_sessions')->countDocuments());
+        self::assertSame($auditCountBefore, $this->database->selectCollection('audit_events')->countDocuments());
     }
 
     public function test_uncertain_page_cannot_be_replaced_with_a_different_signed_response(): void

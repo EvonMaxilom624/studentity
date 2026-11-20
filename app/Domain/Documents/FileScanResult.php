@@ -10,8 +10,11 @@ use DateTimeImmutable;
 /** Structural scanner DTO only. It is not permission, academic approval or persisted clearance. */
 final readonly class FileScanResult
 {
-    public function __construct(public string $objectFingerprint, public string $policyFingerprint, public string $scanId, public string $scannerId, public string $signatureVersion, public string $status, public ?string $detectedMediaType, public DateTimeImmutable $checkedAt, public bool $typeValid, public bool $structureSafe, public bool $malwareClean, public bool $activeContentSafe)
+    public function __construct(public string $objectFingerprint, public string $policyFingerprint, public string $scanId, public string $scannerId, public string $signatureVersion, public string $status, public ?string $detectedMediaType, public DateTimeImmutable $checkedAt, public bool $typeValid, public bool $structureSafe, public bool $malwareClean, public bool $activeContentSafe, public ?string $attemptNonce = null)
     {
+        if ($attemptNonce !== null) {
+            F::digest($attemptNonce);
+        }
         F::digest($objectFingerprint);
         F::digest($policyFingerprint);
         F::uuid($scanId);

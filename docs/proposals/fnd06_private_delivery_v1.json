@@ -1,0 +1,11 @@
+{
+  "status": "Unbound synthetic delivery decision and buffered-reader proofs; no production access",
+  "basis": ["SRS v1.1 FR-DOC-005/006/008/013", "NFR-SEC-005/006/011/014", "accepted ADR-01/02"],
+  "operations": ["view", "download"],
+  "trust": "Actor and immutable object must be resolved by an accepted server authentication/metadata boundary. Current access callback separately authorizes exact operation, role, record, program and sensitivity scope; returns a digest of all relevant current revisions, never client booleans. Independent recovery callback returns an accepted current generation digest; a co-restored Mongo row is insufficient.",
+  "proof": "Before/after witnesses bind actor, operation, exact object/version/digest/size/media, current policy, access/recovery revisions and full consistent latest completed clean journal head. Every witness requires current scanner health. Reader bytes are length/digest checked; elapsed monotonic budget includes both authorities and storage.",
+  "limits": "65536 bytes/5000ms are explicit synthetic fixture limits only, not university upload policy. The reader must itself enforce bounded allocation/timeouts; service post-checks cannot interrupt a blocked reader.",
+  "delivery": "Internal bounded buffer only, no token, URL, stream, public route, caching, promotion, audit dispatch or ordinary delivery binding. Lab adapter reuses the private synthetic store internal read only in testing. No acceptance of real storage, ACL, encryption, scanner, authenticated session or audit delivery.",
+  "remaining": ["Approved real authentication, exact operation/record authorization and source metadata", "Independent recovery authority acceptance", "Real storage/scanner/ACL/encryption acceptance", "Approved private proxy or short-lived token API, request audit and headers", "Revocation/race policy at actual network delivery; comparison before return is not distributed atomicity", "Real OS alias/link negative proofs and hostile filesystem race acceptance"],
+  "rollback": "Restore only reviewed source changes; retain all synthetic original bytes, commands, scan history, audit, outbox and partial evidence. No data deletion or schema repair."
+}

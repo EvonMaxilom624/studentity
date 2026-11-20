@@ -67,14 +67,20 @@ final class ReferenceJobContractTest extends TestCase
 
     public function test_wire_rejects_duplicate_members_and_oversize_before_parsing(): void
     {
-        foreach (['{"purpose":"a","purpose":"b"}', str_repeat(' ', 16385)] as $wire) {
-            $error = null;
-            try {
-                ReferenceJobCommand::fromJson($wire);
-            } catch (\InvalidArgumentException $e) {
-                $error = $e;
-            }self::assertNotNull($error);
+        $dupError = null;
+        try {
+            ReferenceJobCommand::fromJson('{"purpose":"a","purpose":"b"}');
+        } catch (\InvalidArgumentException $e) {
+            $dupError = $e;
         }
+        self::assertInstanceOf(\InvalidArgumentException::class, $dupError);
+        $oversizeError = null;
+        try {
+            ReferenceJobCommand::fromJson(str_repeat(' ', 16385));
+        } catch (\InvalidArgumentException $e) {
+            $oversizeError = $e;
+        }
+        self::assertInstanceOf(\InvalidArgumentException::class, $oversizeError);
     }
 
     #[DataProvider('badOutcomes')]

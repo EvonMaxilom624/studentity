@@ -16,6 +16,7 @@ use App\Domain\Registration\RegistrationPrerequisiteService;
 use App\Infrastructure\Registration\MongoRegistrationChallengeRepository;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use MongoDB\BSON\Binary;
 use MongoDB\BSON\UTCDateTime;
 use MongoDB\Client;
 use MongoDB\Database;
@@ -143,7 +144,10 @@ final class RegistrationPrerequisiteTest extends TestCase
         self::assertFalse($repo->consume($id, $intent, 'registration.email', '123456'));
         $row = $this->db()->selectCollection('registration_challenges_v1')->findOne(['_id' => $id]);
         self::assertSame(1, $row['attempts']);
-        self::assertFalse(str_contains(json_encode($row, JSON_THROW_ON_ERROR), '123456'), 'Stored challenge disclosed OTP.');
+        self::assertInstanceOf(Binary::class, $row['code_digest']);
+        self::assertSame((new ChallengeVerifier($this->key))->digest($id, $intent, 'registration.email', '123456'), $row['code_digest']->getData());
+        self::assertArrayNotHasKey('code', $row);
+        self::assertArrayNotHasKey('otp', $row);
     }
 
     public function test_atomic_attempt_budget_expiry_and_duplicate_issuance_never_reset_a_challenge(): void

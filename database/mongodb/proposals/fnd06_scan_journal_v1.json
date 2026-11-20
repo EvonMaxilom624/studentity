@@ -1,0 +1,197 @@
+{
+  "proposal": "FND06 isolated scan journal/state/audit/outbox v1",
+  "database": "studentity_test_fnd06_scan_journal_v1",
+  "status": "Local lab only; not accepted document schemas or permission",
+  "collections": [
+    {
+      "name": "scan_heads",
+      "options": {
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "object_id",
+              "wire",
+              "hash"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "object_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "wire": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              },
+              "hash": {
+                "bsonType": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "validationLevel": "strict",
+        "validationAction": "error"
+      },
+      "indexes": [
+        {
+          "keys": {
+            "object_id": 1
+          },
+          "name": "by_object"
+        }
+      ]
+    },
+    {
+      "name": "scan_history",
+      "options": {
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "object_id",
+              "wire",
+              "hash"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "object_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "wire": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              },
+              "hash": {
+                "bsonType": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "validationLevel": "strict",
+        "validationAction": "error"
+      },
+      "indexes": [
+        {
+          "keys": {
+            "object_id": 1
+          },
+          "name": "by_object"
+        }
+      ]
+    },
+    {
+      "name": "scan_audit",
+      "options": {
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "object_id",
+              "wire",
+              "hash"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "object_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "wire": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              },
+              "hash": {
+                "bsonType": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "validationLevel": "strict",
+        "validationAction": "error"
+      },
+      "indexes": [
+        {
+          "keys": {
+            "object_id": 1
+          },
+          "name": "by_object"
+        }
+      ]
+    },
+    {
+      "name": "scan_outbox",
+      "options": {
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "object_id",
+              "wire",
+              "hash"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 150
+              },
+              "object_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "wire": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              },
+              "hash": {
+                "bsonType": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "validationLevel": "strict",
+        "validationAction": "error"
+      },
+      "indexes": [
+        {
+          "keys": {
+            "object_id": 1
+          },
+          "name": "by_object"
+        }
+      ]
+    }
+  ],
+  "rollback": "Retain data; no down/TTL/repair/delete. Selective reviewed source restoration.",
+  "limits": "1000 events per object lab cap; hash chains are local consistency, not independent restore anchors; no dispatcher or normal file access."
+}

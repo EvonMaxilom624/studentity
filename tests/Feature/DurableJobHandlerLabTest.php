@@ -161,10 +161,12 @@ final class DurableJobHandlerLabTest extends TestCase
         $old = $r->claim($j->data['operationId']);
         $outcome = $this->adapter($r, $this->provider())->handle($j, $j->data['items'][0]);
         usleep(160000);
+        // Reconcile before claiming the short write lease; provider I/O can outlast it.
+        $resolved = $this->adapter($r, $this->provider())->handle($j, $j->data['items'][0]);
         $fresh = $r->claim($j->data['operationId']);
         self::assertNotNull($fresh);
         $this->rejects(fn () => $r->record($old, $c->data['targetId'], $outcome));
-        self::assertSame('succeeded', $r->record($fresh, $c->data['targetId'], $this->adapter($r, $this->provider())->handle($j, $j->data['items'][0])));
+        self::assertSame('succeeded', $r->record($fresh, $c->data['targetId'], $resolved));
         $this->assertOneEffect($c);
     }
 
@@ -270,8 +272,8 @@ final class DurableJobHandlerLabTest extends TestCase
                         self::assertLessThanOrEqual($entry['committed_at']->toDateTimeImmutable(), ReceiptSchema::time($response->data['checkedAt']));
                     }
                 } else {
-                    self::assertContains('succeeded',array_column($results,'status'));
-                    self::assertSame(1,$this->db()->job_results->countDocuments(['job_id' => $j->data['operationId']]));
+                    self::assertContains('succeeded', array_column($results, 'status'));
+                    self::assertSame(1, $this->db()->job_results->countDocuments(['job_id' => $j->data['operationId']]));
                 }
                 $this->assertOneEffect($c);
             } finally {

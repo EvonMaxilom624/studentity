@@ -1,0 +1,15 @@
+{
+  "status": "Local verification preparation only; no secure CI or release acceptance",
+  "local_runner": "Explicit PHP8.4, conservative initial loopback rs0 URI and writable-primary preflight; PHPUnit testing environment, optional npm build, allowlisted deterministic input manifest, retained private evidence. No install/migration/cleanup/commit/deploy.",
+  "artifact_limits": "Manifest hashes selected runtime/test/build inputs and lockfiles; excludes env/storage/vendor/node_modules/docs and hidden files. It exports hashes, not contents. deployable=false always; not a secrets scanner, signed artifact or proof of reproducible cross-OS builds. Root artisan is now included; changing its bytes or removing its selected path invalidates comparison. This closes that specific coverage gap, not complete release-artifact coverage.",
+  "required_ci_acceptance": [
+    "Choose approved runner/provider/region/budget, immutable environment with PHP8.4/ext-mongodb and disposable rs0 fixture. Current local URI preflight is not network isolation.",
+    "Exact lockfile dependency provisioning and registry trust; never ignore platform requirements or use force installation. Local runner installs nothing.",
+    "Read-only job permissions; untrusted PRs receive no institution secrets or release tokens; isolate test data/caches/artifacts.",
+    "Build frontend with approved public build inputs, generate complete exact release artifact/SBOM, independently verify/sign provenance and retain immutable approved version. Current source-input hashes do not replace that.",
+    "Secure logs, scanner/secret/dependency policy, independent recovery/deployment proofs and institutional M0 signoff remain mandatory.",
+    "No automatic merge/publish/deploy or M1 activation from local green tests."
+  ],
+  "strict_candidate": "php scripts/verify-local.php --ci-candidate: local PHP8.4 preflight, PHPUnit fail-on-all-issues plus fail-on-empty-test-suite, mandatory npm build, before/after selected source hash equality. Rejects preflight-only and duplicate/unknown options. Summary strict-ci-candidate/strictTests=true/deployable=false; no installations, migrations, remote calls, signing or release activation.",
+  "provider_status": "No Git remote and no active CI workflow configured as inspected19November2026; provider/runner/signing identity are pending explicit selection. See fnd01_ci_acceptance_packet_v1.md for concrete review inputs."
+}
