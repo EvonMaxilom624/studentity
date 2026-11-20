@@ -204,3 +204,10 @@ contains bd7f5b7 (sanitize .env.example) diverging from local702a25d; preserve i
 through a normal merge, without force-push. antigravityPushed=ab6d1d3 is already
 an ancestor of master; deleting its reference does not remove its history.
 Hosted CI execution and deployment remain unrequested.
+
+Pre-push combined-tree strict verification passed:731tests/4624assertions,
+131.833s; Vite25modules1.04s. Evidence:
+storage/app/private/local-verification/13f989996cc00084ee16bb91b227fb77/.
+The first sandboxed attempt passed tests but could not resolve Vite configuration;
+the normal-filesystem rerun passed the complete strict verifier, deployable=false.
+Review polish commit5fe7ac8; normal merge preserves remote bd7f5b7.
