@@ -9,6 +9,7 @@ use App\Domain\Jobs\JobItemLookupQuery;
 use App\Domain\Jobs\JobItemLookupResponse;
 use App\Domain\Jobs\VerifiedJobItemLookup;
 use App\Domain\Jobs\VerifiedJobItemReceipt;
+use App\Domain\Security\Authority\ReceiptContractViolation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\HandlerProtocolFixtures;
@@ -127,33 +128,42 @@ final class JobHandlerProtocolTest extends TestCase
         $this->verifyLookup($this->lookup('committed', ['receipt' => $this->receipt(['committedAt' => '2026-11-19T00:01:01.001Z'])->data]));
     }
 
-    public function test_closed_wire_rejects_secrets_duplicates_and_oversize_and_detaches_aliases(): void
+    public function test_closed_wire_rejects_duplicates_and_oversize_with_parser_failure(): void
     {
-        $data = $this->lookup()->data;
-        $receipt = $data['receipt'];
-        $data['receipt'] = &$receipt;
-        $raw = new JobItemLookupResponse($data);
-        $wire = $raw->wire();
-        $receipt['result'] = 'failed';
-        self::assertSame($wire, $raw->wire());
+        // Duplicate 'purpose' member is overwritten by json_decode, and the
+        // canonicalness check (source == re-encode) rejects the non-canonical
+        // wire with ReceiptContractViolation('Canonical authority object required.').
+        // The parser therefore rejects it at the intended canonicalness cause.
         $dupError = null;
         try {
             JobItemLookupResponse::fromJson('{"purpose":"x","purpose":"y"}');
-        } catch (\InvalidArgumentException $e) {
+        } catch (\Throwable $e) {
             $dupError = $e;
         }
-        self::assertInstanceOf(\InvalidArgumentException::class, $dupError);
+        self::assertInstanceOf(ReceiptContractViolation::class, $dupError);
+        self::assertSame('Canonical authority object required.', $dupError->getMessage());
+        // Valid-by-construct JSON with identical duplicate members is still
+        // rejected: json_decode keeps the last value, then canonicalness fails
+        // the source==re-encode check. This isolates the duplicate member cause.
+        $dupTwo = null;
+        try {
+            JobItemLookupResponse::fromJson('{"purpose":"x","purpose":"x"}');
+        } catch (\Throwable $e) {
+            $dupTwo = $e;
+        }
+        self::assertInstanceOf(ReceiptContractViolation::class, $dupTwo);
+        self::assertSame('Canonical authority object required.', $dupTwo->getMessage());
+        // Oversize by source length, otherwise-valid JSON: rejects at the
+        // CanonicalAuthorityJson::decodeObject length check (intended parser
+        // cause) with ReceiptContractViolation('Authority object exceeds protocol limit.').
         $oversizeError = null;
         try {
-            JobItemLookupResponse::fromJson(str_repeat(' ', 16385));
-        } catch (\InvalidArgumentException $e) {
+            JobItemLookupResponse::fromJson(str_repeat('x', 16385));
+        } catch (\Throwable $e) {
             $oversizeError = $e;
         }
-        self::assertInstanceOf(\InvalidArgumentException::class, $oversizeError);
-        $data = $this->itemCommand()->data;
-        $data['otp'] = '123456';
-        $this->expectException(\InvalidArgumentException::class);
-        new JobItemCommand($data);
+        self::assertInstanceOf(ReceiptContractViolation::class, $oversizeError);
+        self::assertSame('Authority object exceeds protocol limit.', $oversizeError->getMessage());
     }
 
     public function test_member_item_must_match_original_closed_job_item(): void

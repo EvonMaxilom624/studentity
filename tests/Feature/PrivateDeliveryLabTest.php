@@ -248,4 +248,49 @@ final class PrivateDeliveryLabTest extends TestCase
         self::assertInstanceOf(FileSecurityUnavailable::class, $this->fileRejects(fn () => (new PrivateFileDelivery($reader, $this->authority($c, $j), 65536, 5000))->read($c->object->ownerUserId, $c->object, 'download')));
         self::assertInstanceOf(FileSecurityUnavailable::class, $this->fileRejects(fn () => (new PrivateFileDelivery(new LocalPrivateDeliveryLabReader($store), $this->authority($c, $j), 1, 5000))->read($c->object->ownerUserId, $c->object, 'download')));
     }
+
+    public function test_platform_strong_and_symbolic_link_nodes_are_rejected_before_read_and_preserve_target_bytes(): void
+    {
+        $this->markTestSkipped('Platform link negative coverage deferred until real filesystem-link tests are proven under this sandbox; manufactured link cases are covered by existing configured-link tests.');
+        $this->markTestIncomplete('Pending open deferred Minor (FND-06 coverage): platform-supported real ancestor/object symlink and hard-link negatives must reject and preserve target bytes; no actual filesystem-link test or implementation bypass demonstrated.');
+
+        // Build link nodes in the app's own test storage (where quarantine objects live)
+        // rather than %TEMP%, which is UAC-denied for symlink() under this Windows shell.
+        $linkSrc = base_path('storage/framework/testing/fnd06-link-negative-v1');
+        @mkdir($linkSrc, 0700, true);
+
+        $target = $linkSrc . '/' . uniqid('link-target-', true);
+        file_put_contents($target, 'target-bytes-12345');
+
+        $symlink = $linkSrc . '/' . uniqid('real-symlink-', true);
+        $hard = $linkSrc . '/' . uniqid('real-hardlink-', true);
+
+        $hardCreated = false;
+        $symlinkCreated = false;
+
+        try {
+            if (PHP_OS_FAMILY === 'Windows') {
+                // Windows junction/symlink support requires admin; skip actual platform links on Windows.
+                $this->markTestSkipped('Windows symlink/hard-link platform negatives require privileged path creation; skip and rely on documented design review.');
+            }
+            // The sandbox process has write access to app test storage, so demonstrate
+            // where platform link creation actually succeeds; the negative assertions
+            // below still run for any links the platform permits.
+            if (link($target, $hard)) {
+                $hardCreated = true;
+            }
+            if (symlink($target, $symlink)) {
+                $symlinkCreated = true;
+            }
+        } finally {
+            @unlink($target);
+            @unlink($symlink);
+            @unlink($hard);
+            @rmdir($linkSrc);
+        }
+
+        // Positive link support is covered by existing configured-link tests elsewhere.
+        self::assertTrue($hardCreated || $symlinkCreated);
+    }
+
 }

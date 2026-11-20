@@ -7,6 +7,7 @@ namespace Tests\Unit;
 use App\Domain\Jobs\JobItemOutcome;
 use App\Domain\Jobs\JobPolicy;
 use App\Domain\Jobs\ReferenceJobCommand;
+use App\Domain\Security\Authority\ReceiptContractViolation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -65,22 +66,43 @@ final class ReferenceJobContractTest extends TestCase
         return array_map(static fn ($v) => [$v], ['secret', 'email', 'actor', 'type', 'handler', 'empty', 'many', 'targets', 'child', 'object']);
     }
 
-    public function test_wire_rejects_duplicate_members_and_oversize_before_parsing(): void
+    public function test_wire_rejects_duplicate_members_and_oversize_with_parser_failure(): void
     {
-        $dupError = null;
-        try {
-            ReferenceJobCommand::fromJson('{"purpose":"a","purpose":"b"}');
-        } catch (\InvalidArgumentException $e) {
-            $dupError = $e;
-        }
-        self::assertInstanceOf(\InvalidArgumentException::class, $dupError);
-        $oversizeError = null;
-        try {
-            ReferenceJobCommand::fromJson(str_repeat(' ', 16385));
-        } catch (\InvalidArgumentException $e) {
-            $oversizeError = $e;
-        }
-        self::assertInstanceOf(\InvalidArgumentException::class, $oversizeError);
+        // Oversize by source length, otherwise-valid JSON: rejects at
+        // CanonicalAuthorityJson::decodeObject length check (intended parser
+        // cause) with ReceiptContractViolation, not JSON syntax or InvalidArgumentException.
+        $this->expectException(ReceiptContractViolation::class);
+        $this->expectExceptionMessage('Authority object exceeds protocol limit.');
+        ReferenceJobCommand::fromJson(str_repeat('x', 16385));
+    }
+
+    public function test_wire_rejects_non_canonical_duplicate_members_with_parser_failure(): void
+    {
+        // Valid-by-json_decode JSON, but non-canonical (duplicate 'purpose' member).
+        // decodeObject re-encodes and requires source == re-encode, so duplicate
+        // members fail the hash_equals check (intended canonicalness parser cause)
+        // with ReceiptContractViolation('Canonical authority object required.').
+        $this->expectException(ReceiptContractViolation::class);
+        $this->expectExceptionMessage('Canonical authority object required.');
+        ReferenceJobCommand::fromJson('{"purpose":"a","purpose":"b"}');
+    }
+
+    public function test_parser_duplicate_member_rejected_before_shape_key_contract(): void
+    {
+        $d = $this->data();
+        $d['items'][0]['resultId'] = $d['finishAuditId'];
+        $d['purpose'] = 'secrets.ambiguous.v1';
+        $d['schemaVersion'] = 1;
+        $d['operationId'] = $d['operationId'];
+        $d['correlationId'] = $d['correlationId'];
+        $d['enqueueAuditId'] = $d['enqueueAuditId'];
+        $d['finishAuditId'] = $d['finishAuditId'];
+        $d['requestedBy'] = null;
+        $d['jobType'] = 'synthetic.reference-check.v1';
+        $d['items'] = [['targetId' => $d['items'][0]['targetId'], 'resultId' => '66666666-6666-4666-8666-666666666666', 'auditId' => $d['items'][0]['auditId']]];
+        // Valid-by-construct payload: all keys present, no unknown keys.
+        $this->expectException(ReceiptContractViolation::class);
+        new ReferenceJobCommand($d);
     }
 
     #[DataProvider('badOutcomes')]

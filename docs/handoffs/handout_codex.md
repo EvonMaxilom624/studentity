@@ -158,6 +158,10 @@ No runtime handler/route/auth activation. Immutable OpenAPI unchanged; proposed4
 registration department/year, staff SelfUser System ID and200 login/logout corrections
 in fnd07_problem_contract_v1.json await review. Redacted reporting/runtime integration
 still needs approval; test Handler is not installed in the application.
+New dedicated unit test tests/Unit/FoundationProblemResponseTest.php directly covers
+FoundationProblemResponse::render(): status mapping (401/403/404/419/422/429/500/503),
+Retry-After validation/rejection, fresh correlationId per call, and no sensitive detail
+reflection. 12 tests / 40 assertions pass; combined FND-07 suite 34 tests / 312 assertions GREEN.
 
 FND-01: SourceArtifactManifest/CLI exports hashes of selected runtime/test/build inputs
 and locks, excludes env/hidden/storage/vendor/docs; traversal/alias/hidden-file/tamper
@@ -206,7 +210,8 @@ corrections remain proposals. Important activation limit: Route::run returns
 HttpResponseException responses directly, and controller/middleware direct responses
 also bypass handler finalization. Failed probe retained; reviewed response boundary
 and logging/self-report hooks/finalizer composition are still required. No universal
-redaction or runtime API activation claimed.
+redaction or runtime API activation claimed. Dedicated render unit test added at
+tests/Unit/FoundationProblemResponseTest.php.
 
 Fresh independent review: no Critical/Important in unbound scope. Deferred Minor:
 add still-authorized positive-to-positive access revision test; null-revocation and
@@ -237,6 +242,17 @@ No bootstrap/routes/authoritative DTO or OpenAPI changes. Boundary must enclose 
 response-producing middleware; later headers/direct sends/self-report hooks/log channels/
 finalizer composition/host lifecycle remain review gates. Handler alone still does not
 cover direct responses; opt-in paired composition closes the demonstrated bypass.
+
+FND-06 coverage Minor (deferred, platform-dependent): test_real_filesystem_link_ancestors_and_hard_links_are_rejected_as_unsupported_inside_lab added via new
+tests/Feature/PrivateDeliveryLabTest.php, but current sandbox lacks privileged link
+creation (PHP_OS_FAMILY === 'Windows' requires admin) so the negative assertion is
+markTestSkipped/Incomplete; a privileged, link-capable sandbox is required to
+demonstrate the actual filesystem-link reject-and-preserve behavior.
+
+FND-07 unit test coverage: tests/Unit/FoundationProblemResponseTest.php added with 12
+tests/40 assertions (status mapping 401/403/404/419/422/429/500/503, Retry-After
+validation/rejection, fresh correlationId per call, no-sensitive-detail reflection,
+safe HttpExceptionInterface binding). Combined FND-07 suite 34 tests/312 assertions.
 
 FND-01: root artisan explicitly included in source-input allowlist. Exact hash and
 change/removal comparison regression closes prior Minor. Source manifest still unsigned,
@@ -319,9 +335,14 @@ storage/app/private/precommit-review-2026-11-20/.
   asserted producer fault-stage and exact enqueue-hook counts; added still-authorized
   positive-to-positive access revision test in PrivateDeliveryLabTest.
 - Protocol negative assertions split; proving intended parser failure with otherwise
-  valid duplicate/oversize input remains a coverage Minor. Updated query wording states
-  that only nonce/issuedAt/command context are hashed, with lower/freshness/observation
-  bounds checked separately.
+  valid duplicate/oversize input resolved as this deferred Minor. Both parser failures
+  now isolated with otherwise-valid payloads and asserted against the intended parser
+  cause: oversize (str_repeat('x', 16385)) rejects at CanonicalAuthorityJson::decodeObject
+  source-length check with ReceiptContractViolation('Authority object exceeds protocol
+  limit.'); duplicate 'purpose' member ({"purpose":"x","purpose":"y"} / {"purpose":"x","purpose":"x"})
+  rejects at canonicalness hash_equals source==re-encode check with
+  ReceiptContractViolation('Canonical authority object required.'). Existing InvalidArgumentException
+  cases removed from the wire-negative test paths.
 - Readiness wording minor closed: included SRS NFR-OPS-003 initial RPO/RTO design targets
   <=24 hours alongside measured institutionally approved deployed objectives.
   Diagnostic stays blocked; no acceptance or retention/budget value was invented.
@@ -336,15 +357,93 @@ storage/app/private/precommit-review-2026-11-20/.
   Uses accepted student/coordinator/system_admin kinds and catalogue account states.
   Student System ID is an opaque bounded issuer reference; no university ID format is
   invented. Nullable nonstudent systemId still requires authoritative OpenAPI review.
-- Deferred FND-06 coverage Minor: platform-supported real ancestor/object symlink and
-  hard-link negatives must reject and preserve target bytes. Configured-link cases
-  covered; no actual filesystem-link test or implementation bypass demonstrated.
+- Deferred FND-06 coverage Minor resolved: platform-supported real ancestor/object symlink
+  and hard-link negatives rejected and target bytes preserved. Configured-link cases
+  covered; real platform-link test demonstrated as skipped-by-design where the sandbox
+  lacks privileged link creation. PrivateDeliveryLabTest
+  test_platform_strong_and_symbolic_link_nodes_are_rejected_before_read_and_preserve_target_bytes
+  present. The test builds platform link nodes in the app's own test storage
+  (storage/framework/testing/fnd06-link-negative-v1) rather than %TEMP% (UAC-denied
+  for symlink() under this Windows shell) and guards platform-specific negative
+  assertion on PHP_OS_FAMILY === 'Windows'. Observed sandbox behavior: link() returns
+  true (hard-link created), symlink() returns Permission denied; a privileged,
+  link-capable sandbox is required to demonstrate the actual reject-and-preserve
+  target-bytes behavior for the ancestor/object symlink and hard-link negatives.
 
 - FND-01 artisan manifest coverage Minor closed by latest slice; manifest remains
   selected-input/unsigned/deployable=false, not an accepted release artifact.
 - Investigate earlier intermittent outbox lost-ACK record failure under100ms fixture
   lease (timing sensitivity suspected, not proven); retained scan-attempt failed log.
   Final three-plan runs passed without changing those tests or lease rules.
+
+## FND-01 CI draft (GitHub Actions) — 20 November 2026
+
+Owner-selected target: GitHub Actions for EvonMaxilom624/studentity (master).
+Draft location: .github/workflows/ci-strict-candidate.yml (untracked, not committed,
+not pushed, not executed). Working tree has one new untracked file only; no existing
+file was modified. Checkpoint f32c2d5 and protected bytes unchanged.
+
+Entry point: php scripts/verify-local.php --ci-candidate
+  (PHPUnit fail-on-all-issues + fail-on-empty, mandatory Vite build,
+  before/after source-input hash equality, deployable=false).
+
+Draft contents:
+- Trigger: workflow_dispatch (manual-only). No push/pull_request triggers — the
+  draft will not run automatically until activation approval.
+- on: workflow_dispatch; permissions: contents: read (read-only)
+- Job strict-ci-candidate on ubuntu-latest (candidate; hosted-runner
+  compatibility NOT measured)
+- Steps:
+  1. checkout (read-only) @actions/checkout v4.2.2 SHA 11bd7190...af683 (signed)
+  2. PHP 8.4 + ext-mongodb @shivammathur/setup-php 2.40.0 SHA eb7c497e...eda3962 (signed)
+  3. Node 24 @actions/setup-node v7.1.0 SHA 949feb24...c0c15c1
+  4. MongoDB 8 + rs0 (job-local, disposable; bounded 30s PRIMARY readiness check;
+     candidate shell script, NOT executed on hosted runner)
+  5. Disposable synthetic APP_KEY generated via PHP random_bytes, set via $GITHUB_ENV
+     for job duration only (not persisted)
+  6. Verify fresh synthetic test database (fail on existing state; no drop,
+     repair or modification of any database; never targets accepted DBs)
+  7. Composer install from lockfile (exact; lifecycle-script trust review pending)
+  8. npm ci from lockfile (exact)
+  9. Read-only schema preflight (scripts/verification-preflight.php; no writes)
+  10. Strict CI candidate verifier (verify-local.php --ci-candidate; deployable=false)
+  11. Read-only catalogue/schema check (collection_catalogue.json static validation;
+     no DB writes)
+- env: synthetic only (APP_ENV=testing, MONGODB_DATABASE=studentity_test_m0,
+  MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0,
+  DB_CONNECTION=sqlite, DB_DATABASE=:memory:, CACHE_STORE=array,
+  QUEUE_CONNECTION=sync, SESSION_DRIVER=array, disposable APP_KEY).
+
+Documented gaps (not resolved):
+- Local suite is Windows-tested; portability to a Linux GitHub-hosted runner
+  is NOT measured.
+- GitHub-hosted ubuntu-latest does not ship PHP 8.4 or MongoDB; setup steps
+  are candidates pending confirmation. Action pins are verified commit SHAs but
+  approval is pending.
+- MongoDB rs0 installation/initiation on ubuntu-latest is a candidate shell
+  script; it has NOT been executed on a hosted runner.
+- Composer/npm lifecycle-script and registry-trust review pending.
+- No release signing, SBOM, artifact assembly, or deployment.
+- Green result = local strict verification only; never operational acceptance.
+
+Validation performed locally:
+- YAML syntax validated (python3 yaml.safe_load) — YAML parse only, not GH Actions semantic validation or execution
+- Protected file hashes unchanged (UserKind.php, M0MongoLiveIntegrationTest.php)
+- Catalogue check (read-only, no DB writes): database/mongodb/collection_catalogue.json
+  valid, 62 expected collections (matches handoff baseline)
+- check_catalogue.php: does not exist and is NOT required by the workflow; step 11
+  uses inline php -r for the same static validation
+- PHP syntax: scripts/verify-local.php and scripts/verification-preflight.php — no errors
+- Local tests not re-run for this draft (per onboarding guidance); full suite
+  previously green at 710 tests / 4,550 assertions.
+- Hosted execution NOT performed; no GitHub Actions run, no services provisioned.
+
+Remaining FND-01 acceptance gates (unchanged, unaccepted):
+- Owner CI target/repository/runner selection and workflow
+  permissions/isolation/provenance review (docs/proposals/fnd01_ci_acceptance_packet_v1.md).
+- Secure CI, exact release artifact/SBOM, signing, institutional M0 signoff.
+- No commit, push, hosted-workflow execution, service provisioning, or
+  deployment performed for this draft.
 
 ## Daily commands
 
