@@ -1,225 +1,121 @@
-# =============================================================================
-# STUDENTITY — GitHub Actions CI workflow DRAFT (FND-01)
-# =============================================================================
-# Status: DRAFT for review only. Manual-only (workflow_dispatch). Not activated,
-# not pushed, not executed, not a hosted-workflow run.
-# Repository: EvonMaxilom624/studentity (master)
-#
-# This draft implements the FND-01 strict CI candidate entry point:
-#   php scripts/verify-local.php --ci-candidate
-#
-# TRIGGER: workflow_dispatch only — manual dispatch awaits activation approval.
-# No push/pull_request triggers: the draft will not run automatically.
-#
-# REQUIRED REVIEWS BEFORE ACTIVATION:
-#   * CI provider/runner/region/budget selection (owner decision)
-#   * Exact action/image/tool pins — pinned below as commit SHAs; approval pending
-#   * Composer/npm lifecycle-script and registry-trust review
-#   * MongoDB rs0 setup on ubuntu-latest — hosted-runner compatibility NOT measured
-#   * Disposable schema/rs0 proof, artifact/SBOM/signing, M0 signoff
-#
-# See docs/proposals/fnd01_ci_acceptance_packet_v1.md (full acceptance
-# sequence) and docs/handoffs/handout_codex.md (canonical handoff).
-#
-# VERIFIED ACTION REFERENCES (commit SHAs, not mutable tags):
-#   actions/checkout          v4.2.2   @11bd71901bbe5b1630ceea73d27597364c9af683 (signed)
-#   shivammathur/setup-php  2.40.0   @eb7c497e18156a6bbabfef1d3a82760b9eda3962 (signed, PHP 8.4)
-#   actions/setup-node        v7.1.0   @949feb2413d6458794dcd2491c4babbbce0c15c1
-#
-# GAPS (documented, not resolved by this draft):
-#   * Local suite is Windows-tested (explicit C:\tools\php84\php.exe,
-#     npm.cmd); portability to a Linux GitHub-hosted runner is NOT measured.
-#   * GitHub-hosted ubuntu-latest does not ship PHP 8.4 or MongoDB; setup steps
-#     below are candidates pending confirmation.
-#   * MongoDB rs0 installation/initiation on ubuntu-latest is a candidate shell
-#     script; it has NOT been executed on a hosted runner.
-#   * No release signing, SBOM, artifact assembly, or deployment.
-#   * deployable=false; a green result means local strict verification only.
-#
-# =============================================================================
-
-name: "studentity: strict CI candidate (draft)"
+# Manual CI candidate only; committing configuration is not hosted execution or release acceptance.
+# Action commits verified by source inspection; runner/package compatibility still needs a hosted run.
+name: "studentity: strict CI candidate"
 
 on:
   workflow_dispatch:
 
-# Read-only: no repository write, no persisted credentials, no secrets/tokens.
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 env:
-  # Synthetic test configuration only — no institutional credentials or real
-  # records. Matches fnd01_ci_acceptance_packet_v1.md host-setup step 4 and
-  # phpunit.xml <env> overrides.
   APP_ENV: testing
   MONGODB_DATABASE: studentity_test_m0
   MONGODB_URI: "mongodb://127.0.0.1:27017/?replicaSet=rs0"
   DB_CONNECTION: sqlite
   DB_DATABASE: ":memory:"
+  DB_URL: ""
   CACHE_STORE: array
   QUEUE_CONNECTION: sync
   SESSION_DRIVER: array
-  # Disposable synthetic key generated per job run (set in step via $GITHUB_ENV).
-  APP_KEY: "base64:placeholder-until-job-generated"
+  MAIL_MAILER: array
 
 jobs:
   strict-ci-candidate:
-    name: strict-ci-candidate
-    # REVIEW: runner OS/image not measured; ubuntu-latest is a candidate only.
-    runs-on: ubuntu-latest
-
+    # Fixed OS matches the MongoDB noble repository; image contents remain mutable.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      # ------------------------------------------------------------------
-      # 1. Checkout source (read-only, no persisted credentials)
-      # ------------------------------------------------------------------
-      - name: Checkout source (read-only)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Checkout reviewed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-          persist-credentials: false
-          # No token: read-only checkout of the public ref.
+          persist-credentials: false # Checkout uses the read-only automatic job token.
 
-      # ------------------------------------------------------------------
-      # 2. Provision PHP 8.4 + ext-mongodb
-      #    Local verified: PHP 8.4.27, ext-mongodb 2.5.7.
-      #    Hosted-runner compatibility NOT measured.
-      # ------------------------------------------------------------------
-      - name: Setup PHP 8.4 with ext-mongodb
-        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: "8.4"
-          extensions: mongodb
-          ini-values: memory_limit=512M
+          extensions: mongodb-2.5.7
           coverage: none
+          ini-values: memory_limit=512M
 
-      # ------------------------------------------------------------------
-      # 3. Provision Node 24 + npm
-      #    Local verified: Node 24.13.0, npm 11.6.2.
-      # ------------------------------------------------------------------
-      - name: Setup Node 24
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
-          cache: "npm"
 
-      # ------------------------------------------------------------------
-      # 4. Install MongoDB 8 and initiate rs0 (job-local, disposable)
-      #    GitHub-hosted ubuntu-latest does not ship MongoDB. Replica set rs0
-      #    is required by MONGODB_URI. This shell script is a candidate; it has
-      #    NOT been executed on ubuntu-latest. Bounded readiness checks poll for
-      #    PRIMARY status with a 30-second deadline. Never targets accepted
-      #    databases (studentity_dev_m0 / local / production).
-      # ------------------------------------------------------------------
-      - name: Install MongoDB 8 and initiate rs0 (candidate — not hosted-runner tested)
+      - name: Generate disposable synthetic encryption key
         run: |
-          set -e
-          echo "FND-01 CI draft: installing MongoDB 8 on job-local runner (ubuntu-latest candidate)."
-          # Import MongoDB public GPG key.
-          curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
-          # Add MongoDB 8 repository for Ubuntu 24.04 (noble).
-          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
-          sudo apt-get update -y
+          set -euo pipefail
+          key="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+          printf '::add-mask::%s\n' "$key"
+          printf 'APP_KEY=%s\n' "$key" >> "$GITHUB_ENV"
+
+      - name: Setup job-local rs0 (candidate, hosted execution unmeasured)
+        run: |
+          set -euo pipefail
+          test "$GITHUB_ACTIONS" = true
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          # Only the new runner's disposable instance; never the developer's MongoDB service.
+          curl -fsSL https://pgp.mongodb.com/server-8.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          echo "deb [ arch=amd64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update
           sudo apt-get install -y mongodb-org
-          # Prepare data/log directories (job-local, disposable).
-          sudo mkdir -p /data/db /var/log/mongodb
-          sudo chown -R $(id -un):$(id -gn) /data/db /var/log/mongodb
-          # Start mongod as single-node replica set rs0 on loopback only.
-          mongod --dbpath /data/db --logpath /var/log/mongodb/mongod.log --fork --replSet rs0 --bind_ip 127.0.0.1 --port 27017
-          # Initiate replica set rs0.
-          mongosh --quiet --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "127.0.0.1:27017"}]})'
-          # Bounded readiness check: poll for PRIMARY, 30-second deadline.
-          for i in $(seq 1 30); do
-            if mongosh --quiet --eval 'db = db.getSiblingDB("admin"); var h = db.hello(); quit((h.isWritablePrimary === true && h.setName === "rs0") ? 0 : 1);' 2>/dev/null; then
-              echo "MongoDB rs0 is PRIMARY on 127.0.0.1:27017"
-              break
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "MongoDB rs0 readiness deadline exceeded (30s)" >&2
-              exit 1
-            fi
-            sleep 1
-          done
-          # Report topology (read-only, no data writes).
-          mongosh --quiet --eval 'db = db.getSiblingDB("admin"); printjson(rs.status().members.map(function(m){return{name:m.name,stateStr:m.stateStr};}))'
+          mkdir -p "$RUNNER_TEMP/studentity-mongo"
+          mongod --dbpath "$RUNNER_TEMP/studentity-mongo" --logpath "$RUNNER_TEMP/studentity-mongo.log" --fork --replSet rs0 --bind_ip 127.0.0.1 --port 27017
+          timeout 15s mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          # Outer timeout bounds the complete polling process, including connection delays.
+          timeout 30s bash -c 'until mongosh "mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=1000&connectTimeoutMS=1000" --quiet --eval "const h=db.hello(); quit(h.isWritablePrimary === true && h.setName === \"rs0\" ? 0 : 1)"; do sleep 1; done'
+          mongod --version
 
-      # ------------------------------------------------------------------
-      # 5. Generate disposable APP_KEY (job environment only, never stored)
-      #    Synthetic key: 32 random bytes, base64-encoded. Set for this job run
-      #    only via $GITHUB_ENV; not persisted, not committed, not a secret.
-      # ------------------------------------------------------------------
-      - name: Generate disposable synthetic APP_KEY
+      - name: Install locked Composer dependencies with implicit scripts disabled
         run: |
-          APP_KEY_VAL=$(php -r 'echo base64_encode(random_bytes(32));')
-          echo "APP_KEY=base64:${APP_KEY_VAL}" >> $GITHUB_ENV
-          echo "Disposable APP_KEY generated for this job run (not persisted)."
+          composer install --prefer-dist --no-interaction --no-progress --no-scripts
+          composer check-platform-reqs
+          # Explicit required discovery only; no setup/update/create-project scripts.
+          php artisan package:discover --ansi
 
-      # ------------------------------------------------------------------
-      # 6. Verify fresh isolated synthetic test database (no writes, no repair)
-      #    Confirms studentity_test_m0 has no non-system collections before
-      #    tests run. Fails on unexpected existing state — never drops, repairs
-      #    or modifies any database. Does not target studentity_dev_m0 or any
-      #    accepted/production database.
-      # ------------------------------------------------------------------
-      - name: Verify fresh synthetic test database (fail on existing state)
+      - name: Install locked npm dependencies
         run: |
+          npm ci --ignore-scripts
+          # Explicit esbuild binary verification; remaining lifecycle/registry trust review pending.
+          npm rebuild esbuild
+
+      - name: Initialize only fresh job-local catalogue databases
+        run: |
+          set -euo pipefail
+          test "$GITHUB_ACTIONS" = true
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          # Both fixed namespaces are required by Fnd02MongoSchemaTest.
+          # They share local baseline names but are on this new runner's own loopback instance.
+          # Guard BOTH before any migration. Never delete, drop, repair, or reuse existing state.
           mongosh --quiet --eval '
-            db = db.getSiblingDB("studentity_test_m0");
-            var collections = db.getCollectionNames().filter(function(c) {
-              return !c.startsWith("system.");
-            });
-            if (collections.length > 0) {
-              print("FAIL: studentity_test_m0 contains unexpected collections: " + JSON.stringify(collections));
-              quit(1);
+            for (const name of ["studentity_dev_m0","studentity_test_m0"]) {
+              if (db.getSiblingDB(name).getCollectionInfos().length !== 0) {
+                print("Fresh-only CI bootstrap rejected existing database state."); quit(1);
+              }
             }
-            print("studentity_test_m0 is fresh and empty (no non-system collections).");
           '
+          # The accepted migration is used only after proving a fresh exclusive job instance.
+          # It is NOT a repair command and must never be run on accepted local databases.
+          for name in studentity_dev_m0 studentity_test_m0; do
+            MONGODB_DATABASE="$name" php artisan migrate --database=mongodb --path=database/migrations/mongodb --no-interaction
+          done
 
-      # ------------------------------------------------------------------
-      # 7. Provision Composer dependencies from lockfile (exact, no updates)
-      #    Local lockfile: Laravel 13.42.0, mongodb/laravel-mongodb 5.12,
-      #    PHPUnit 12.5.44, etc. vendor/autoload.php required by verify-local.php.
-      #    Lifecycle scripts (post-autoload-dump -> package:discover) run as
-      #    defined in composer.json; lifecycle-script trust review pending.
-      # ------------------------------------------------------------------
-      - name: Install Composer dependencies from lockfile
-        run: composer install --prefer-dist --no-interaction --no-progress
-        # REVIEW: lifecycle scripts run per composer.json; --no-scripts may be
-        # required pending lifecycle-script trust review.
-
-      # ------------------------------------------------------------------
-      # 8. Provision npm dependencies from lockfile (exact, ci)
-      # ------------------------------------------------------------------
-      - name: Install npm dependencies from lockfile
-        run: npm ci
-
-      # ------------------------------------------------------------------
-      # 9. Read-only schema/topology preflight (no writes, no repair)
-      #    Verifies test-target environment (sqlite :memory:, MongoDB rs0
-      #    PRIMARY on loopback). Does not create, modify, or repair collections.
-      # ------------------------------------------------------------------
-      - name: Read-only schema preflight
+      - name: Read-only environment and topology preflight
         run: php scripts/verification-preflight.php
 
-      # ------------------------------------------------------------------
-      # 10. Strict CI candidate: PHPUnit (fail-on-all-issues + fail-on-empty),
-      #     mandatory Vite build, before/after source-input hash equality.
-      #     Deployable=false.
-      # ------------------------------------------------------------------
-      - name: Run strict CI candidate verifier
+      - name: Read-only live catalogue and migration-ledger verification
+        run: php scripts/check-mongo-catalogue.php
+
+      - name: Strict tests, mandatory build, unchanged selected inputs
         run: php scripts/verify-local.php --ci-candidate
 
-      # ------------------------------------------------------------------
-      # 11. Separate read-only catalogue/schema check (no DB writes)
-      #     Validates database/mongodb/collection_catalogue.json is valid JSON
-      #     and reports expected collection count. Never queries or modifies any
-      #     database; purely a file-level static check of the accepted catalogue.
-      # ------------------------------------------------------------------
-      - name: Read-only catalogue/schema check
-        run: |
-          php -r '
-            $j = json_decode(file_get_contents("database/mongodb/collection_catalogue.json"), true);
-            if ($j === null || !is_array($j)) { fwrite(STDERR, "Catalogue is not valid JSON.\n"); exit(1); }
-            $collections = $j["collections"] ?? $j;
-            if (!is_array($collections)) { fwrite(STDERR, "Catalogue has no collections array.\n"); exit(1); }
-            echo "Catalogue valid: " . count($collections) . " expected collections.\n";
-          '
+# No deployment, artifact publication, signing, project secrets, or database deletion.
+# MongoDB's 8.0 package patch, runtime/image identity and dependency registries are NOT
+# fully frozen release inputs. Hosted verification, SBOM/signing and M0 acceptance remain open.

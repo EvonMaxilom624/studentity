@@ -16,6 +16,9 @@ final class SourceArtifactManifest
 
     private static function allowed(string $p): bool
     {
+        if ($p === '.github/workflows/ci-strict-candidate.yml') {
+            return true; // Explicit public execution input; no other hidden files are admitted.
+        }
         foreach (explode('/', $p) as $segment) {
             if (str_starts_with($segment, '.')) {
                 return false;

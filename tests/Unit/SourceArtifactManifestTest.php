@@ -7,6 +7,19 @@ use PHPUnit\Framework\TestCase;
 
 final class SourceArtifactManifestTest extends TestCase
 {
+    public function test_explicit_ci_workflow_is_hashed_without_admitting_other_hidden_files(): void
+    {
+        $r = $this->root();
+        mkdir($r.'/.github/workflows', 0700, true);
+        file_put_contents($r.'/.github/workflows/ci-strict-candidate.yml', 'name: synthetic');
+        file_put_contents($r.'/.github/private.json', 'synthetic-secret');
+        $paths = ['.github/workflows/ci-strict-candidate.yml', '.github/private.json'];
+        $before = SourceArtifactManifest::capture($r, $paths);
+        self::assertSame(['.github/workflows/ci-strict-candidate.yml'], array_keys($before['files']));
+        file_put_contents($r.'/.github/workflows/ci-strict-candidate.yml', 'name: changed');
+        self::assertFalse(SourceArtifactManifest::matches($before, SourceArtifactManifest::capture($r, $paths)));
+    }
+
     private function root(): string
     {
         $r = dirname(__DIR__, 2).'/storage/app/private/artifact-fixtures/'.bin2hex(random_bytes(8));

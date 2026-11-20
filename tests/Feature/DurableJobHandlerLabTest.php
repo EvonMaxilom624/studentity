@@ -24,7 +24,7 @@ final class DurableJobHandlerLabTest extends TestCase
 {
     use HandlerReconciliationFixtures;
 
-    private function original(int $lease = 100): array
+    private function original(int $lease = 60000): array
     {
         $r = $this->repo($lease);
         $j = $this->command(1);
@@ -67,7 +67,7 @@ final class DurableJobHandlerLabTest extends TestCase
 
     public function test_lost_ack_then_new_worker_recovers_exact_original_receipt_without_repeating_effect(): void
     {
-        [$r,$j,$c] = $this->original();
+        [$r,$j,$c] = $this->original(1000);
         $p = $this->provider(after: function () {
             throw new \RuntimeException('synthetic lost ACK');
         });
@@ -75,27 +75,40 @@ final class DurableJobHandlerLabTest extends TestCase
         $this->assertOneEffect($c);
         self::assertSame(0, $this->db()->job_results->countDocuments(['job_id' => $j->data['operationId']]));
         $old = $this->handlerDb(true)->executions_v1->findOne(['_id' => $c->data['itemOperationId']])['receipt_wire'];
-        usleep(160000);
-        $r = $this->repo(100);
-        self::assertSame('succeeded', (new ReferenceJobWorker($r, $this->adapter($r, $this->provider(), $this->store())))->run($j->data['operationId']));
+        usleep(1100000);
+        $provider = $this->provider();
+        $slow = $this->scriptedAuthority(function ($query) use ($provider) {
+            usleep(200000); // Valid provider latency must not share the expired fixture's tiny lease.
+
+            return $provider->lookup($query);
+        }, fn ($command) => $provider->execute($command));
+        $r = $this->repo(1000);
+        self::assertSame('succeeded', (new ReferenceJobWorker($r, $this->adapter($r, $slow, $this->store())))->run($j->data['operationId']));
         $this->assertOneEffect($c);
         self::assertSame($old, $this->store()->receipt($c)->wire());
     }
 
     public function test_local_result_abort_then_restart_keeps_provider_receipt_and_single_effect(): void
     {
-        [$r,$j,$c] = $this->original();
-        $r = $this->repo(100, fault: function ($stage) {
+        [$r,$j,$c] = $this->original(1000);
+        // Complete external reconciliation before starting the short local write lease.
+        $outcome = $this->adapter($r, $this->provider())->handle($j, $j->data['items'][0]);
+        $faults = 0;
+        $r = $this->repo(1000, fault: function ($stage) use (&$faults) {
             if ($stage === 'record') {
+                $faults++;
                 throw new \RuntimeException('synthetic result abort');
             }
         });
-        $this->rejects(fn () => (new ReferenceJobWorker($r, $this->adapter($r, $this->provider())))->run($j->data['operationId']));
+        $lease = $r->claim($j->data['operationId']);
+        self::assertNotNull($lease);
+        $this->rejects(fn () => $r->record($lease, $c->data['targetId'], $outcome));
+        self::assertSame(1, $faults, 'The intended transaction fault must be reached.');
         $cached = $this->store()->receipt($c)->wire();
         $this->assertOneEffect($c);
         self::assertSame(0, $this->db()->job_results->countDocuments(['job_id' => $j->data['operationId']]));
-        usleep(160000);
-        $r = $this->repo(100);
+        usleep(1100000);
+        $r = $this->repo(1000);
         self::assertSame('succeeded', (new ReferenceJobWorker($r, $this->adapter($r, $this->provider())))->run($j->data['operationId']));
         self::assertSame($cached, $this->store()->receipt($c)->wire());
         $this->assertOneEffect($c);
@@ -157,16 +170,17 @@ final class DurableJobHandlerLabTest extends TestCase
 
     public function test_stale_local_lease_cannot_write_result_after_provider_effect_finishes(): void
     {
-        [$r,$j,$c] = $this->original();
+        [$r,$j,$c] = $this->original(1000);
         $old = $r->claim($j->data['operationId']);
         $outcome = $this->adapter($r, $this->provider())->handle($j, $j->data['items'][0]);
-        usleep(160000);
-        // Reconcile before claiming the short write lease; provider I/O can outlast it.
+        usleep(1100000);
+        // Reconcile before claiming the write lease; keep the original policy on restart.
         $resolved = $this->adapter($r, $this->provider())->handle($j, $j->data['items'][0]);
-        $fresh = $r->claim($j->data['operationId']);
+        $writer = $this->repo(1000);
+        $fresh = $writer->claim($j->data['operationId']);
         self::assertNotNull($fresh);
         $this->rejects(fn () => $r->record($old, $c->data['targetId'], $outcome));
-        self::assertSame('succeeded', $r->record($fresh, $c->data['targetId'], $resolved));
+        self::assertSame('succeeded', $writer->record($fresh, $c->data['targetId'], $resolved));
         $this->assertOneEffect($c);
     }
 

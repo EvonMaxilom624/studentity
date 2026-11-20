@@ -36,7 +36,7 @@ final class PrivateDeliveryLabTest extends TestCase
         $store = new LocalQuarantineLabStore($namespace, fn () => true);
         $store->stage($command->object, $this->fileBytes());
 
-        return [$command, $journal, $store];
+        return [$command, $journal, $store, $namespace];
     }
 
     private function authority($c, $j, ?\Closure $access = null, ?\Closure $recovery = null, ?\Closure $policy = null, ?\Closure $health = null): JournalPrivateDeliveryAuthority
@@ -249,48 +249,50 @@ final class PrivateDeliveryLabTest extends TestCase
         self::assertInstanceOf(FileSecurityUnavailable::class, $this->fileRejects(fn () => (new PrivateFileDelivery(new LocalPrivateDeliveryLabReader($store), $this->authority($c, $j), 1, 5000))->read($c->object->ownerUserId, $c->object, 'download')));
     }
 
-    public function test_platform_strong_and_symbolic_link_nodes_are_rejected_before_read_and_preserve_target_bytes(): void
+    public function test_real_hard_link_rejects_private_read_and_preserves_original_bytes(): void
     {
-        $this->markTestSkipped('Platform link negative coverage deferred until real filesystem-link tests are proven under this sandbox; manufactured link cases are covered by existing configured-link tests.');
-        $this->markTestIncomplete('Pending open deferred Minor (FND-06 coverage): platform-supported real ancestor/object symlink and hard-link negatives must reject and preserve target bytes; no actual filesystem-link test or implementation bypass demonstrated.');
-
-        // Build link nodes in the app's own test storage (where quarantine objects live)
-        // rather than %TEMP%, which is UAC-denied for symlink() under this Windows shell.
-        $linkSrc = base_path('storage/framework/testing/fnd06-link-negative-v1');
-        @mkdir($linkSrc, 0700, true);
-
-        $target = $linkSrc . '/' . uniqid('link-target-', true);
-        file_put_contents($target, 'target-bytes-12345');
-
-        $symlink = $linkSrc . '/' . uniqid('real-symlink-', true);
-        $hard = $linkSrc . '/' . uniqid('real-hardlink-', true);
-
-        $hardCreated = false;
-        $symlinkCreated = false;
-
-        try {
-            if (PHP_OS_FAMILY === 'Windows') {
-                // Windows junction/symlink support requires admin; skip actual platform links on Windows.
-                $this->markTestSkipped('Windows symlink/hard-link platform negatives require privileged path creation; skip and rely on documented design review.');
-            }
-            // The sandbox process has write access to app test storage, so demonstrate
-            // where platform link creation actually succeeds; the negative assertions
-            // below still run for any links the platform permits.
-            if (link($target, $hard)) {
-                $hardCreated = true;
-            }
-            if (symlink($target, $symlink)) {
-                $symlinkCreated = true;
-            }
-        } finally {
-            @unlink($target);
-            @unlink($symlink);
-            @unlink($hard);
-            @rmdir($linkSrc);
-        }
-
-        // Positive link support is covered by existing configured-link tests elsewhere.
-        self::assertTrue($hardCreated || $symlinkCreated);
+        [$c, $j, $store, $namespace] = $this->fixture();
+        $target = storage_path('framework/testing/fnd06-quarantine-v1/'.$namespace.'/'.$c->object->objectId.'.bin');
+        $before = file_get_contents($target);
+        $alias = $target.'.hardlink';
+        self::assertTrue(@link($target, $alias), 'This proof requires hard-link-capable private test storage.');
+        clearstatcache(true, $target);
+        self::assertGreaterThan(1, lstat($target)['nlink']);
+        $service = new PrivateFileDelivery(new LocalPrivateDeliveryLabReader($store), $this->authority($c, $j), 65536, 5000);
+        self::assertInstanceOf(FileSecurityUnavailable::class, $this->fileRejects(fn () => $service->read($c->object->ownerUserId, $c->object, 'download')));
+        self::assertSame($before, file_get_contents($target));
+        self::assertSame($before, file_get_contents($alias));
+        // Retain the unique synthetic link pair as evidence; no cleanup or production paths.
     }
 
+    public function test_real_object_and_ancestor_symlinks_are_rejected_when_host_can_create_them(): void
+    {
+        $evidence = storage_path('app/private/fnd06-platform-links/'.Str::uuid());
+        mkdir($evidence, 0700, true);
+        $supported = @symlink(__FILE__, $evidence.'/capability-link');
+        file_put_contents($evidence.'/capability.json', json_encode(['symlinkCreationSupported' => $supported, 'platform' => PHP_OS_FAMILY], JSON_THROW_ON_ERROR));
+        if (! $supported) {
+            self::assertFalse(is_link($evidence.'/capability-link'));
+            self::assertSame('Windows', PHP_OS_FAMILY, 'The Linux CI candidate must support real symlink probes.');
+
+            return; // Capability observation only; handoff must keep the symlink proof open.
+        }
+        foreach (['object', 'ancestor'] as $kind) {
+            [$c, $j, $store, $namespace] = $this->fixture();
+            $root = storage_path('framework/testing/fnd06-quarantine-v1/'.$namespace);
+            $target = $root.'/'.$c->object->objectId.'.bin';
+            $before = file_get_contents($target);
+            $base = realpath(storage_path('framework/testing/fnd06-quarantine-v1'));
+            self::assertSame($base.DIRECTORY_SEPARATOR.$namespace, realpath($root));
+            // Move only this test's newly created synthetic target within its own namespace.
+            $saved = $kind === 'object' ? $target.'.original' : $root.'-original';
+            self::assertFalse(file_exists($saved));
+            self::assertSame($kind === 'object' ? realpath($root) : $base, realpath(dirname($saved)));
+            self::assertTrue(rename($kind === 'object' ? $target : $root, $saved));
+            self::assertTrue(symlink($saved, $kind === 'object' ? $target : $root));
+            $service = new PrivateFileDelivery(new LocalPrivateDeliveryLabReader($store), $this->authority($c, $j), 65536, 5000);
+            self::assertInstanceOf(FileSecurityUnavailable::class, $this->fileRejects(fn () => $service->read($c->object->ownerUserId, $c->object, 'download')));
+            self::assertSame($before, file_get_contents($kind === 'object' ? $saved : $saved.'/'.$c->object->objectId.'.bin'));
+        }
+    }
 }

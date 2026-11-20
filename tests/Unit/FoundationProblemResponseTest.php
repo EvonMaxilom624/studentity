@@ -47,7 +47,7 @@ final class FoundationProblemResponseTest extends TestCase
 
     public function test_token_mismatch_maps_to_419_problem(): void
     {
-        $response = FoundationProblemResponse::render(new TokenMismatchException());
+        $response = FoundationProblemResponse::render(new TokenMismatchException);
 
         self::assertSame(419, $response->getStatusCode());
         $data = $response->getData(true);
@@ -57,7 +57,7 @@ final class FoundationProblemResponseTest extends TestCase
 
     public function test_authentication_exception_maps_to_401_problem(): void
     {
-        $response = FoundationProblemResponse::render(new AuthenticationException());
+        $response = FoundationProblemResponse::render(new AuthenticationException);
 
         self::assertSame(401, $response->getStatusCode());
         $data = $response->getData(true);
@@ -67,7 +67,7 @@ final class FoundationProblemResponseTest extends TestCase
 
     public function test_http_exception_maps_to_its_status_code(): void
     {
-        $response = FoundationProblemResponse::render(new NotFoundHttpException());
+        $response = FoundationProblemResponse::render(new NotFoundHttpException);
 
         self::assertSame(404, $response->getStatusCode());
         $data = $response->getData(true);
@@ -140,9 +140,20 @@ final class FoundationProblemResponseTest extends TestCase
     {
         $error = new class(403) extends \RuntimeException implements HttpExceptionInterface
         {
-            public function __construct(int $code) { parent::__construct('synthetic', $code); }
-            public function getStatusCode(): int { return 403; }
-            public function getHeaders(): array { return []; }
+            public function __construct(int $code)
+            {
+                parent::__construct('synthetic', $code);
+            }
+
+            public function getStatusCode(): int
+            {
+                return 403;
+            }
+
+            public function getHeaders(): array
+            {
+                return [];
+            }
         };
         $response = FoundationProblemResponse::render($error);
 
