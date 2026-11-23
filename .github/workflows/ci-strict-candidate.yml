@@ -113,6 +113,11 @@ jobs:
       - name: Read-only live catalogue and migration-ledger verification
         run: php scripts/check-mongo-catalogue.php
 
+      - name: Build assets required by HTTP smoke tests on a fresh checkout
+        # The root Blade view requires the generated Vite manifest during PHPUnit.
+        # The strict verifier still performs its own mandatory build after tests.
+        run: npm run build
+
       - name: Strict tests, mandatory build, unchanged selected inputs
         run: php scripts/verify-local.php --ci-candidate
 

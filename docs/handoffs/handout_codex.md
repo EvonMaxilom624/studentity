@@ -1,10 +1,10 @@
 # Studentity canonical development handoff
 
-Updated20November2026 (Asia/Shanghai). Repository master, starting HEAD702a25d.
+Updated23November2026 (Asia/Shanghai). Repository master, starting HEADcc122c8.
 Owner authorized committing/pushing reviewed changes to master and deleting the other
 branch on20November2026. Preserve all commits; never force-push or rewrite history.
-This is the only maintained handoff. antigravityPushed points to ab6d1d3, already in
-master history; its branch reference may be deleted under this explicit instruction.
+This is the only maintained handoff. antigravityPushed was deleted after its commits
+were confirmed in master. Consolidated master was pushed at cc122c8 on20November.
 Historical detail: git history and [archived handoff](handout_codex_archive_2026-11-18_pre_governance_identity.md).
 Full pre-polish handoff bytes are retained in storage/app/private/cline-polish-2026-11-20/before/docs/handoffs/.
 
@@ -37,10 +37,11 @@ Mongo integration5.12/library2.5.1/ext2.5.7/server8.3.7rs0;
 Node24.13/npm11.6/Vite7.3.8. Lockfiles/config/source contracts unchanged by this review.
 Last earlier frozen strict baseline:710tests/4550assertions,94.985s,
 Vite25modules790ms; evidence storage/app/private/precommit-review-2026-11-20/.
-Current frozen strict:731tests/4623assertions GREEN129.787s, zero skipped/issues;
-Vite25modules901ms,295selected source inputs unchanged, deployable=false. Evidence:
-storage/app/private/cline-polish-2026-11-20/verified-tests.log and completion-report.md.
-PHP syntax275files and Pint9touched PHPfiles pass. No hosted run. Owner has now authorized commit/push.
+Latest local merged-tree strict:731tests/4624assertions GREEN131.833s, zero
+skipped/issues; Vite25modules1.04s, selected inputs unchanged, deployable=false.
+Evidence:storage/app/private/local-verification/13f989996cc00084ee16bb91b227fb77/.
+Earlier polish report:storage/app/private/cline-polish-2026-11-20/completion-report.md.
+PHP syntax275files and Pint9touched PHPfiles passed during that review.
 
 Accepted studentity_dev_m0/studentity_test_m0 each have62catalogue collections plus
 migration ledger,128catalogue-defined indexes plus62automatic _id indexes on those
@@ -54,7 +55,7 @@ no bearer/remember-me fallback. Readiness remains blocked/activationAllowed=fals
 |17Nov|Runtime/Mongo baseline ca22296; initial transaction/schema proofs.|
 |18Nov|Laravel13 alignment; identity/session/recovery/registration/outbox labs.|
 |19-20Nov|Scanner/journal/private delivery/HTTP/strict-verifier foundations; reviewed ab6d1d3.|
-|20Nov|Cline702a25d committed a manual CI candidate and test changes; its full run had2errors/1skip. Codex polish reviewed for owner-authorized commit/push.|
+|20Nov|Cline702a25d committed a manual CI candidate and test changes; its full run had2errors/1skip. Codex polish committed5fe7ac8; merged/pushedcc122c8; redundant branch deleted.|
 
 M0 is INCOMPLETE. Runtime/schema/transaction/identity/session/file/clearance lab proofs
 exist; real hosting/authority/issuer/session/provider/recovery/secure CI/signing and
@@ -110,14 +111,16 @@ options beyond the explicitly checked validator/validation settings. It grants n
 
 GitHub Actions target EvonMaxilom624/studentity was already selected. Do not ask for the
 same provider choice again. .github/workflows/ci-strict-candidate.yml is a committed
-manual-only candidate with local uncommitted corrections; committing configuration is
-not hosted execution or operational acceptance. Cline's 'activated/development complete'
-summary does not establish a successful run. No hosted run/provision/push was performed
-by this review. Candidate lifecycle and runner execution need measured evidence.
+manual-only candidate with corrections committed and pushed in cc122c8. Committing
+configuration is not hosted execution or operational acceptance. On23November the
+owner authorized review and a manual hosted candidate run. First run45094522096
+tested cc122c84fd95b1be43066e60ac9efc6404869d17 and failed one HTTP smoke test
+because Vite manifest was absent on the clean checkout. Evidence:
+storage/app/private/fnd01-hosted-2026-11-23/; no production acceptance or deployment.
 
-1. Review the local CI/bootstrap/checker changes and remaining registry/lifecycle trust.
-   After explicit commit/push/hosted-run instruction, measure the candidate on its actual
-   fresh runner. Fresh guard must reject any existing state; never reset/repair it.
+1. Review/run the authorized manual synthetic CI candidate; record exact source, runner,
+   runtime versions, dependency installation, fresh catalogue, tests/build and failure
+   evidence. Fresh guard must reject existing state; never reset/repair it.
    No deployment, artifact publishing or signing added. Artifact/SBOM/exact provenance,
    signing identity/key custody and institutional M0 acceptance remain separate gates.
 2. FND07: approved API scope/DTO and real middleware/log-channel/reporting/finalizer/host
@@ -203,7 +206,8 @@ Owner requested push to master and deletion of the other branch. Remote master
 contains bd7f5b7 (sanitize .env.example) diverging from local702a25d; preserve it
 through a normal merge, without force-push. antigravityPushed=ab6d1d3 is already
 an ancestor of master; deleting its reference does not remove its history.
-Hosted CI execution and deployment remain unrequested.
+Historical20November scope: hosted CI execution and deployment were unrequested.
+On23November owner authorized the hosted candidate run; deployment remains unrequested.
 
 Pre-push combined-tree strict verification passed:731tests/4624assertions,
 131.833s; Vite25modules1.04s. Evidence:
@@ -211,3 +215,28 @@ storage/app/private/local-verification/13f989996cc00084ee16bb91b227fb77/.
 The first sandboxed attempt passed tests but could not resolve Vite configuration;
 the normal-filesystem rerun passed the complete strict verifier, deployable=false.
 Review polish commit5fe7ac8; normal merge preserves remote bd7f5b7.
+
+## FND-01 hosted measurement (23November2026)
+
+First run:https://github.com/EvonMaxilom624/studentity/actions/runs/45094522096
+Job137431267330: all setup/install/fresh-schema/topology/catalogue steps passed;
+731tests/4635assertions, one ExampleTest failure, no skips reported. Root Blade
+view needs public/build/manifest.json before HTTP tests; the strict verifier builds
+only after tests. The Windows baseline had preexisting ignored assets. No backend
+security/parser/link failure reported on Linux. Strict build was not reached.
+
+Prepared minimal workflow fix: add npm run build after schema checks and before
+the strict verifier; retain its mandatory post-test build and strict flags.
+Local validation:YAML parsed; Vite25modules1.94s; ExampleTest filter2tests/2assertions
+GREEN19.932s. No test, production PHP, dependency, protected or accepted schema edits.
+Owner explicitly approved committing/pushing this fix and handoff, then rerunning.
+Corrected hosted result pending; do not infer a green CI result yet.
+
+Next documented plan after hosted measurement: FND-01 release-evidence acceptance
+review (complete artifact inputs/SBOM/dependency scanning, immutable runtime/package
+identities, signing authority/custody and institutional signoff). This candidate
+does not implement publishing/signing/deployment or grant acceptance. The next
+application development review is FND-07 API scope/DTO approval and middleware/
+logging/exception-hook placement review, before runtime binding; keep original
+OpenAPI immutable. FND-06 real storage/scanner/authorization/recovery acceptance
+follows its own gates. Windows actual symlink proof remains open.
