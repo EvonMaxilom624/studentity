@@ -73,7 +73,7 @@ positive logs, metadata probes, lint/format checks, report and final manifests).
   under storage/app/private/fnd06-platform-links/ records it. This is capability
   observation, NOT proof of symlink rejection. On capable hosts the test creates real
   object and ancestor symlinks, validates resolved test-only move paths, checks denial
-  and target preservation. Linux CI must support those probes. No unconditional skips
+  and target preservation. Linux CI run45095083400 proved those probes on ubuntu-24.04. No unconditional skips
   and no weakening of strict --fail-on-all-issues policy.
 - Parser tests now start from valid original wire; duplicate purpose preserves decoded
   body, oversize input remains valid JSON, exact canonical/length failure is asserted.
@@ -95,7 +95,7 @@ positive logs, metadata probes, lint/format checks, report and final manifests).
   contents:read and nonpersistent checkout token, job timeout and real30s outer
   readiness timeout, masked disposable key, explicit dependency lifecycle steps.
   Existing action SHA identities inspected. Mongo8.0 patch/runtime image/registries
-  are not completely frozen release inputs; actual hosted compatibility is unmeasured.
+  are not completely frozen release inputs; hosted compatibility was measured in run45095083400; immutable release identity remains open.
 - SourceArtifactManifest now includes this explicit CI YAML execution input; other
   hidden files remain excluded. It still exports only selected unsigned hashes and
   deployable=false. Workflow/helper changes are included in before/after comparisons.
@@ -230,7 +230,26 @@ the strict verifier; retain its mandatory post-test build and strict flags.
 Local validation:YAML parsed; Vite25modules1.94s; ExampleTest filter2tests/2assertions
 GREEN19.932s. No test, production PHP, dependency, protected or accepted schema edits.
 Owner explicitly approved committing/pushing this fix and handoff, then rerunning.
-Corrected hosted result pending; do not infer a green CI result yet.
+Corrected workflow committed/pushed578e1fd and hosted run45095083400 passed.
+Tested source578e1fde6b91493a14623b4f8d8b310cffa0c343, job137433010731.
+731tests/4636assertions GREEN40.362s; zero skips/issues in PHPUnit; Vite prebuild
+779ms and strict post-test build768ms,25modules each; source inputs unchanged;
+deployable=false. Full runner steps completed successfully, including Linux real
+object/ancestor symlink negatives. Windows actual symlink negatives remain open.
+Measured runner ubuntu-24.04 image20261116.376.1, PHP8.4.28, Composer2.11.2, ext-mongodb2.5.7,
+Mongo8.0.38rs0, Node24.22.3/npm11.19.1. Both fresh catalogues matched62collections,
+128catalogue-defined indexes/190physical indexes, plus separate migration ledger.
+No local accepted DB mutation; no dependency/platform ignores or updates.
+Run:https://github.com/EvonMaxilom624/studentity/actions/runs/45095083400
+Private local evidence:storage/app/private/fnd01-hosted-2026-11-23/
+(review.json, run-45095083400.json, log excerpts and preservation.json).
+Hosted verifier full per-file manifests remained ephemeral on runner; no artifact
+upload was added. Local evidence retains run metadata and selected logs, not the
+entire hosted filesystem or a signed release artifact.
+Nonblocking GitHub warning: pinned checkout v4 targets Node20; hosted runner forces
+Node24. Action worked; review a supported replacement pin as next CI maintenance.
+No global acceptance: signed artifacts/SBOM/immutable runtimes/signing custody/
+network-isolation/retention and institutional M0 signoff remain pending.
 
 Next documented plan after hosted measurement: FND-01 release-evidence acceptance
 review (complete artifact inputs/SBOM/dependency scanning, immutable runtime/package
