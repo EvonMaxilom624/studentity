@@ -1,49 +1,101 @@
-# FND-01 CI activation review packet v1
+# FND-01 CI and release-evidence review packet v1
 
-Status: local strict verification candidate, no active CI/release approval.
-Canonical progress remains docs/handoffs/handout_codex.md; this packet is an acceptance input, not another roadmap.
+Updated 23 November 2026. Review input, not a second roadmap: development order and
+execution evidence remain in docs/handoffs/handout_codex.md. No release, signing,
+artifact upload, deployment or institutional acceptance is granted here.
 
-## Decisions still required
+## Current measured candidate
 
-| Decision | Observed status | Required choice/evidence |
+GitHub repository EvonMaxilom624/studentity, master. Owner authorized the manual
+synthetic GitHub-hosted candidate and the Vite build-order fix. Run45095083400
+passed at578e1fd:731tests/4636assertions,40.362s; Vite prebuild779ms and mandatory
+post-test build768ms; fresh rs0/catalogue/ledger and unchanged-input checks passed.
+Follow-up d4b3086 changes only the handoff. Historical earlier packet statements
+that no remote/workflow exists are superseded by this measured evidence.
+
+Measured runner ubuntu-24.04 image20261116.376.1, PHP8.4.28/Composer2.11.2,
+ext-mongodb2.5.7, Mongo8.0.38rs0, Node24.22.3/npm11.19.1. These are observed values,
+not fully pinned release inputs. Runtime app dependencies remain Laravel13.42.0,
+Tinker3.1.0, Sanctum4.4.0, Mongo integration5.12/library2.5.1, PHPUnit12.5.44.
+
+## Checkout runtime maintenance
+
+Previous v4.2.2 pin declares Node20; GitHub forced Node24 and emitted a warning.
+Reviewed replacement: actions/checkout v7.0.1 at
+3d3c42e5aac5ba805825da76410c181273ba90b1. Official tag resolves to that commit;
+GitHub signature metadata verified=true; action.yml declares runs.using=node24.
+README requires runner>=2.327.1 for Node24; measured runner2.338.2 satisfies it.
+V7 refuses unsafe fork checkout under privileged PR/workflow triggers by default;
+this candidate remains manual-only, with persist-credentials:false and
+contents:read. No unsafe override is enabled and full source pinning is retained.
+
+Local YAML checks and focused application regression coverage are recorded in the
+handoff. Publishing/rerunning this pin change requires the owner's normal explicit
+commit/push authorization; no hosted pass for this new pin is inferred from the
+previous v4 run. Signature metadata does not attest Studentity release contents.
+
+Sources: [release](https://github.com/actions/checkout/releases/tag/v7.0.1),
+[action manifest](https://github.com/actions/checkout/blob/3d3c42e5aac5ba805825da76410c181273ba90b1/action.yml),
+[README](https://github.com/actions/checkout/blob/3d3c42e5aac5ba805825da76410c181273ba90b1/README.md),
+[commit](https://github.com/actions/checkout/commit/3d3c42e5aac5ba805825da76410c181273ba90b1).
+
+## Candidate execution boundary
+
+Manual workflow_dispatch only; contents:read; no persisted checkout credential,
+project secrets, release credentials, automatic PR/push triggers or shared caches.
+Disposable masked APP_KEY, loopback fresh job-local rs0, both fixed catalogues
+proved empty before migration; no reset/drop/repair of existing state. Full20minute
+job timeout and bounded replica-set readiness. Never run this bootstrap on accepted
+local or production databases. The local strict entry point itself installs,
+migrates, publishes and signs nothing.
+
+composer install uses lockfile and --no-scripts, checks platform requirements, then
+explicit package discovery. No locked Composer plugins; configured allow-plugins
+is not blanket release trust. npm ci --ignore-scripts uses locked npm registry
+URLs/integrity, followed only by explicit esbuild rebuild. Esbuild may fetch its
+exact matching platform binary if optional installation is missing. Application
+providers keep real security/issuer/storage/scanner authorities unavailable.
+No dependency updates, platform ignores or local installations are part of this
+review. Outbound network/package-source trust remains a separate control.
+
+## Exact artifact, SBOM and signing gap review
+
+| Evidence | What exists | Decision/proof still needed |
 |---|---|---|
-| Repository host/remote | No Git remote configured | Owner-selected destination/repository and approved source access. No push performed. |
-| CI provider/runner | None configured; no active workflow | Approved provider, region/budget, runner OS/isolation and immutable runtime/image/action references. |
-| Untrusted changes | No remote jobs | Read-only permissions, no persisted checkout credentials, no institutional secrets/release tokens, isolated caches/network/artifacts and reviewed dependency execution. |
-| Signing/release identity | Not selected | Separate trusted signing job/identity, custody/rotation, independently verified exact artifact digest and provenance. Test jobs cannot mint release authority. |
-| M0 signoff | Incomplete | Named institutional reviewers and accepted operational evidence; local green tests never substitute. |
+| Source identity | Full Git commit and selected source hashes, including CI YAML | Reviewed source change/approval association and independent origin verification; hashes alone are unsigned |
+| Runtime/build identity | Observed runner/tool versions and action commit pins | Exact runner/base image, PHP/modules, Composer, Node/npm, Mongo package/key and build-tool identity; a major version selector is mutable |
+| Complete application artifact | No deployable assembly; public/build and vendor excluded from source manifest | Select archive with exact vendor+build contents or OCI image after hosting/runtime decision; explicit path allowlist, executable bits, symlink policy, deterministic assembly and exact SHA256 digest |
+| Runtime versus build inputs | Composer/npm lockfiles and private transitive lock inventory | Distinguish shipped PHP dependencies from frontend bundled dependencies and build-only npm/dev tools; include native extension/base OS packages for the selected artifact |
+| SBOM | Lock inventory for review only | Select pinned SBOM producer and SPDX/CycloneDX format; bind actual shipped components, licenses, versions/hashes and dependency relationships to the exact artifact digest; inspect native/bundled components |
+| Vulnerability/secret scanning | Existing code tests are not scans | Choose reviewed scanners, databases/as-of versions, severity policy and exception/expiry process; scan source/dependencies and final artifact without uploading secrets; no clean scan result claimed |
+| Provenance/signature | No signing identity/custody selected | Separate approved trusted job/identity, exact artifact+SBOM+source+builder binding, key/OIDC trust policy, independent verification and rotation/revoke/recovery controls |
+| Permission separation | Test job has contents:read and cannot mint release authority | Keep future signing/publishing outside untrusted test jobs; never widen current job rights as a shortcut |
+| Evidence retention | GitHub log policy and private local metadata/excerpts | Define approved duration/access/region/budget; retain complete manifests/failure logs and artifact/SBOM/signature linkage. No existing uploaded artifact or backup claim |
+| Recovery/signoff | Local/hosted lab proofs | Named operational reviewers, tested deployed restore/revoke/session/storage behavior and institutional M0 acceptance |
 
-## Concrete candidate entry point
+The selected-source manifest intentionally excludes .env/secret storage, docs,
+vendor, node_modules and built assets. Do not rename it a release artifact or SBOM.
+The lock inventory records dependency references, not independently verified
+package bytes or vulnerability status; Composer dist checksums may be empty.
 
-`php scripts/verify-local.php --ci-candidate`
+## Decisions remaining with owner/institution
 
-On this developer machine use `& 'C:\tools\php84\php.exe' scripts/verify-local.php --ci-candidate`.
+Select intended deployment/package format and exact approved runtime environment;
+then artifact/SBOM/scanner tool scope and trust/exception policy. Name signing and
+verification authorities with custody/revocation, choose evidence retention and
+access, and obtain independent institutional signoff. No provider, institution
+legal basis, region, retention duration, key or production budget is invented.
+This review prepares those decisions; it neither provisions them nor stalls
+synthetic UI design behind production artifact decisions.
 
-This requires all tests plus Vite build. PHPUnit skipped, incomplete, risky, warning, notice and deprecation outcomes fail; empty suites fail. `--preflight-only` cannot be combined with strict mode. Default local/preflight commands retain their behavior. Successful summary records `profile=strict-ci-candidate`, `strictTests=true`, `frontendBuild=passed`, unchanged selected-source hashes and `deployable=false`. Source hashes are unsigned and incomplete as release provenance. The runner installs/migrates/cleans/uploads/signs nothing.
+## Concrete verifier and rejection policy
 
-## Host setup acceptance sequence
+`php scripts/verify-local.php --ci-candidate` (local explicit PHP8.4 binary).
+Skipped/incomplete/risky/warning/notice/deprecation/empty-suite outcomes fail.
+Mandatory post-test Vite build and selected-source before/after equality remain;
+deployable=false. The workflow prebuild supplies assets required by the HTTP
+smoke test on clean checkout. --preflight-only cannot combine with strict mode.
 
-1. Review the exact source revision, including all current uncommitted work, before any future commit/push. No automatic merge/publish/deploy. Actual workflow permissions and dependency execution remain unaccepted until inspected.
-2. Provision a disposable isolated runner with reviewed immutable references for PHP8.4/ext-mongodb, Node/npm and MongoDB replica set. Current measured versions: PHP8.4.27, Mongo extension2.5.7, Node24.13/npm11.6, Mongo8.3.7rs0. Exact hosted OS/tool/image compatibility has not been measured; no production image or action pin is invented here. Never run untrusted jobs on this developer machine or shared production credentials/data.
-3. In that approved environment only, provision exact Composer/npm lockfiles with platform checks. No force installs, platform ignores or dependency updates. Review Composer/npm lifecycle scripts/registry trust before executing dependency code. This local slice performs no installations.
-4. Supply synthetic test configuration only: APP_ENV=testing, MONGODB_DATABASE=studentity_test_m0, MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0, DB_CONNECTION=sqlite, DB_DATABASE=:memory:, CACHE_STORE=array, QUEUE_CONNECTION=sync, SESSION_DRIVER=array; generate a new disposable synthetic APP_KEY. PHPUnit XML owns child-test overrides; parent Laravel/Dotenv is not bootstrapped by the verifier. Approved public build inputs only. No institutional credentials or real records.
-5. Initialize rs0 on the disposable job-local instance with loopback advertised members. The existing preflight verifies URI/topology but is not network isolation; enforce network/data boundaries outside PHP as well. It does not create a replica set or schema.
-6. Provision the accepted catalogue into a demonstrably fresh/empty isolated studentity_test_m0 via a separately reviewed bootstrap step. Existing migration can issue collMod on existing collections, so do not point it at accepted/local/production databases or invoke it as automatic repair. Existing lab tests may create their exact studentity_test_* fixtures. Do not reuse/persist job DB volumes; disposal policy is a host-approval decision, not a local deletion command.
-7. Run the strict entry point. Retain failed-stage logs and input manifests privately. A nonzero status at preflight/tests/build/hash verification rejects the candidate. Green means local strict verification only; no operational acceptance flag is emitted.
-8. Separately select/review complete artifact assembly, dependency/SBOM/secret scanning, immutable package retention and reproducibility requirements. Current verifier hashes selected source inputs, excluding secrets/storage/vendor/node_modules/docs; it does not package vendor/build outputs or sign anything.
-9. Use an independently approved trusted release job to verify/sign the complete exact artifact and origin. Define signing identity/custody and permission boundaries before workflow activation. A source manifest or plain checksum cannot grant deployment.
-10. Obtain institutional M0 and deployment acceptance. Then review real FND07 API scope/DTO/middleware/logging/lifecycle binding and FND06 storage/scanner/auth/private delivery acceptance. Those remain separate gated work.
-
-## Immutable input references at preparation
-
-- `composer.lock` SHA256 `bb2ff2ff59233b50561a3e7c3457b127b50d1fa80313d9a06d09d8237848d503`
-- `package-lock.json` SHA256 `7185acc8b626c7be92b46cebfd5173e8d63abe446fbd2d8969a0fa87b5862f53`
-- `database/mongodb/collection_catalogue.json` SHA256 `2fb572b70b6ed1ef2f4bcb94f07e3a79d7b76706a13cc02e02408c79afc32709`
-
-These values identify the current local candidate, not institutional approval. Dependencies remain Laravel13.42.0/Tinker3.1.0/Sanctum4.4.0/PHPUnit12.5.44/Mongo integration5.12/library2.5.1. Version claims derive from existing lockfiles/local evidence, not remote CI measurements.
-
-## Required activation review proof
-
-Actual provider workflow diff; exact reviewed source/runner/action/image/dependency identities; job secret/permission boundaries; disposable schema/rs0 proof; strict negative/positive test/build evidence; controlled log/artifact retention; complete artifact/SBOM and independent signing verification; operational recovery/deployment acceptance and named M0 signoff. None is accepted by a configuration toggle.
-
-No active workflow or Git remote was created, and no data was uploaded. Rollback is source-only and reviewed; preserve all prior dirty work, test evidence and Mongo histories. No reset/stash/clean/drop/delete/repair commands.
+No result in this packet grants production readiness, API binding or private
+file delivery. FND-07 scope/DTO/logging/host composition and FND-06 operational
+storage/scanner/auth/recovery acceptance remain separate reviews.

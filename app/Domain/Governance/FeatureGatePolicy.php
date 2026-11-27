@@ -6,6 +6,8 @@ namespace App\Domain\Governance;
 
 final class FeatureGatePolicy
 {
+    // Historical synthetic lab aliases, NOT the finalized SRS institutional gate meanings.
+    // Preserve old lab evidence IDs; real-data admission needs a separately reviewed composition.
     private const GATES = ['registration' => 'G-05', 'coordinator-invitations' => 'G-09'];
 
     public function __construct(private ApprovalRepository $repository, private CurrentApprovalAuthority $authority, private bool $realData = true) {}
@@ -20,6 +22,9 @@ final class FeatureGatePolicy
         try {
             if ($this->realData && $this->authority->isSynthetic()) {
                 return $deny('synthetic_evidence');
+            }
+            if ($this->realData) {
+                return $deny('institutional_gate_composition_unaccepted');
             }
             $records = $this->repository->forGate(self::GATES[$feature], $version);
             if (count($records) !== 1 || ! $records[0] instanceof GateApproval) {

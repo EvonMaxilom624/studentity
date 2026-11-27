@@ -7,7 +7,7 @@ namespace App\Domain\Authentication;
 use App\Domain\Identity\UserKind;
 use App\Domain\Security\Authority\AuthorityContractFields as F;
 
-/** Unbound proposed self-user projection; nullable System ID still requires OpenAPI review. */
+/** Unbound self-user projection matching the identity engineering derivative; not issuer evidence. */
 final readonly class SelfUserProfile
 {
     public const VALID_ACCOUNT_STATES = ['provisional', 'active', 'inactive', 'withdrawn', 'graduated', 'disabled'];

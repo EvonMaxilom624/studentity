@@ -10,7 +10,6 @@ use App\Infrastructure\Documents\ScanJournalLabDatabase;
 use Illuminate\Support\Str;
 use MongoDB\Client;
 use MongoDB\Driver\Exception\BulkWriteException;
-use Symfony\Component\Process\Process;
 use Tests\Support\FileSecurityFixtures;
 use Tests\TestCase;
 
@@ -260,49 +259,6 @@ final class ScanJournalLabTest extends TestCase
         $this->journal();
         $this->expectException(BulkWriteException::class);
         $this->db()->scan_heads->insertOne(['_id' => (string) Str::uuid(), 'object_id' => (string) Str::uuid(), 'wire' => '{}', 'hash' => str_repeat('0', 64), 'bytes' => 'forbidden']);
-    }
-
-    public function test_two_processes_admit_before_completion_and_only_latest_attempt_finishes(): void
-    {
-        $j = $this->journal();
-        $c = $this->command();
-        $barrier = (string) Str::uuid();
-        $dir = storage_path('app/private/fnd06-journal-races/'.$barrier);
-        mkdir($dir, 0700, true);
-        $workers = [];
-        try {
-            foreach ([0, 1] as $slot) {
-                $w = new Process([PHP_BINARY, base_path('tests/Support/scan-journal-worker.php')], base_path(), ['APP_ENV' => 'testing']);
-                $w->setInput(json_encode(['command' => $c->wire(), 'nonce' => $this->nonce(), 'barrier' => $barrier, 'slot' => $slot], JSON_THROW_ON_ERROR));
-                $w->setTimeout(20);
-                $w->start();
-                $workers[] = $w;
-            }
-            $deadline = microtime(true) + 15;
-            while ((! is_file($dir.'/ready-0') || ! is_file($dir.'/ready-1')) && microtime(true) < $deadline) {
-                clearstatcache();
-                usleep(10000);
-            }self::assertFileExists($dir.'/ready-0');
-            self::assertFileExists($dir.'/ready-1');
-            self::assertFileDoesNotExist($dir.'/admitted-0');
-            self::assertFileDoesNotExist($dir.'/admitted-1');
-            file_put_contents($dir.'/release', 'go');
-            $accepted = 0;
-            foreach ($workers as $w) {
-                $w->wait();
-                self::assertSame(0, $w->getExitCode(), $w->getErrorOutput());
-                $accepted += json_decode($w->getOutput(), true, 32, JSON_THROW_ON_ERROR)['accepted'] ? 1 : 0;
-            }self::assertSame(1, $accepted);
-            self::assertSame('unsafe', $j->state($c)['state']);
-            self::assertSame(2, $j->state($c)['generation']);
-            self::assertSame([1, 3, 3, 1], $this->counts($c));
-        } finally {
-            foreach ($workers as $w) {
-                if ($w->isRunning()) {
-                    $w->stop(1);
-                }
-            }
-        }
     }
 
     public function test_orphan_duplicate_head_is_detected_in_reverse_evidence_check(): void

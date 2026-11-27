@@ -6,16 +6,29 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\AuthenticateSessionIdentity;
 use App\Http\Middleware\EnforceCurrentAuthorization;
+use App\Infrastructure\Http\FoundationProblemBoundary;
+use App\Infrastructure\Http\FoundationProblemIntegration;
+use App\Infrastructure\Http\FoundationProblemResponses;
+use App\Infrastructure\Http\Identity\IdentityApiScope;
+use App\Infrastructure\Security\SessionRevocationService;
+use Illuminate\Auth\Events\Authenticated;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Session\SessionManager;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\GuardSessionLabHarness;
 use Tests\Support\ResolveGuardLabResource;
 use Tests\Support\SessionLabTransportUnavailable;
@@ -29,6 +42,8 @@ final class SanctumFencedSessionActivationLabTest extends TestCase
 
     private TestHandler $logs;
 
+    private bool $discardNewMarkerOnRejection = false;
+
     protected function setUp(): void
     {
         $this->setUpGuardLab();
@@ -40,13 +55,22 @@ final class SanctumFencedSessionActivationLabTest extends TestCase
         StatefulSessionLabBoundary::registerReporting($this->app->make(ExceptionHandler::class));
         $this->app->bind(StartSession::class, fn ($app) => new StatefulSessionLabStart($app->make(SessionManager::class), $this->lab, fn () => $this->id()));
         config(['sanctum.middleware.authenticate_session' => 'stateful-lab.identity']);
-        $this->app->bind('stateful-lab.identity', fn () => new class
+        $this->app->bind('stateful-lab.identity', fn () => new class($this->discardNewMarkerOnRejection)
         {
+            public function __construct(private readonly bool $discardNewMarkerOnRejection) {}
+
             public function handle(Request $request, \Closure $next): mixed
             {
                 app('stateful-lab.trace')->events[] = 'identity';
+                $markerWasMissing = $this->discardNewMarkerOnRejection
+                    && $request->hasSession()
+                    && ! $request->session()->has('password_hash_web');
+                $response = app(AuthenticateSessionIdentity::class)->handle($request, $next);
+                if ($markerWasMissing && $response->getStatusCode() >= 400) {
+                    $request->session()->forget('password_hash_web');
+                }
 
-                return app(AuthenticateSessionIdentity::class)->handle($request, $next);
+                return $response;
             }
         });
         // Reuse fixture handlers only; the actual api group supplies Sanctum's full chain.
@@ -151,6 +175,129 @@ final class SanctumFencedSessionActivationLabTest extends TestCase
         $this->postJson('/_stateful_lab/controller-failure', ['_token' => $token], ['Origin' => 'http://localhost'])->assertStatus(500)->assertCookieMissing('synlab_guard')->assertCookieMissing('XSRF-TOKEN');
         self::assertArrayNotHasKey(Auth::guard('web')->getName(), $this->guardPayload($this->ids[1]));
         self::assertFalse(Auth::guard('web')->check());
+    }
+
+    #[DataProvider('identityRejections')]
+    public function test_identity_rejection_preserves_account_and_session_state(
+        int $status,
+        string $code,
+        bool $firstRequest = false,
+        bool $discardNewMarkerOnRejection = false,
+    ): void {
+        $this->discardNewMarkerOnRejection = $discardNewMarkerOnRejection;
+        $responses = new FoundationProblemResponses;
+        $scope = IdentityApiScope::matches(...);
+        FoundationProblemIntegration::register(new Exceptions($this->app->make(ExceptionHandler::class)), $scope, $responses);
+        $this->app->instance(FoundationProblemBoundary::class, new FoundationProblemBoundary($responses, $scope));
+        $this->app->make(Kernel::class)->prependMiddleware(FoundationProblemBoundary::class);
+
+        RateLimiter::for('identity-state-lab', fn () => Limit::perMinute(1)->by($this->userId));
+        Route::middleware('throttle:identity-state-lab')->get('/_stateful_lab/consume-limit', fn () => response()->noContent());
+        $revocationCalls = 0;
+        Route::middleware(['api', 'auth:sanctum', 'throttle:identity-state-lab', ResolveGuardLabResource::class, EnforceCurrentAuthorization::class.':profile.read'])
+            ->delete('/api/v1/auth/sessions/current', function (Request $request) use (&$revocationCalls) {
+                $revocationCalls++;
+                app(SessionRevocationService::class)->revoke($request);
+
+                return response()->json(['revoked' => true]);
+            });
+
+        $this->withMfa = $status !== 403;
+        [$id, $token] = $status === 401 ? $this->statefulAnonymous() : $this->statefulLogin();
+        if ($firstRequest) {
+            self::assertArrayNotHasKey('password_hash_web', $this->guardPayload($id));
+        } elseif ($status !== 401) {
+            // Establish Sanctum's password-integrity marker before capturing the session.
+            $this->getJson('/_stateful_lab/state', ['Origin' => 'http://localhost'])->assertOk()->assertJsonPath('sanctum', $this->userId);
+            self::assertArrayHasKey('password_hash_web', $this->guardPayload($id));
+        }
+        if ($status === 429) {
+            $this->getJson('/_stateful_lab/consume-limit')->assertNoContent();
+        }
+        $originalIds = $this->ids;
+        $before = $this->identityState($id);
+
+        $response = $this->deleteJson('/api/v1/auth/sessions/current', $status === 419 ? [] : ['_token' => $token], ['Origin' => 'http://localhost'])
+            ->assertStatus($status)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('code', $code)
+            ->assertCookieMissing('synlab_guard')
+            ->assertCookieMissing('XSRF-TOKEN');
+
+        self::assertSame(['type', 'title', 'status', 'code', 'correlationId'], array_keys($response->json()));
+        self::assertTrue(Str::isUuid($response->json('correlationId')));
+        if ($status === 429) {
+            self::assertMatchesRegularExpression('/^[1-9][0-9]*$/', $response->headers->get('Retry-After'));
+        }
+        self::assertSame(0, $revocationCalls);
+        self::assertSame($originalIds, $this->ids);
+        $after = $this->identityState($id);
+        if ($firstRequest && ! $discardNewMarkerOnRejection) {
+            self::assertSame(Auth::guard('web')->hashPasswordForCookie(null), $after['sessionPayload']['password_hash_web']);
+            unset($after['sessionPayload']['password_hash_web']);
+        }
+        self::assertSame($before, $after);
+
+        if ($discardNewMarkerOnRejection) {
+            // A successful request retains the native missing-marker initialization.
+            // The Laravel test client reuses the app after auth:sanctum selects its guard.
+            Auth::shouldUse('web');
+            $this->getJson('/_stateful_lab/state', ['Origin' => 'http://localhost'])->assertOk()->assertJsonPath('sanctum', $this->userId);
+            self::assertArrayHasKey('password_hash_web', $this->guardPayload($id));
+        }
+    }
+
+    public static function identityRejections(): array
+    {
+        return [
+            'CSRF' => [419, 'csrf_mismatch'],
+            'authentication' => [401, 'authentication_required'],
+            'authorization' => [403, 'permission_denied'],
+            'rate limit' => [429, 'throttled'],
+            'first authorization with native bookkeeping' => [403, 'permission_denied', true, false],
+            'first throttle with native bookkeeping' => [429, 'throttled', true, false],
+            'first authorization with marker deferred' => [403, 'permission_denied', true, true],
+            'first throttle with marker deferred' => [429, 'throttled', true, true],
+        ];
+    }
+
+    public function test_deferring_the_missing_marker_preserves_native_password_change_rejection(): void
+    {
+        $this->discardNewMarkerOnRejection = true;
+        $fixtureHash = Hash::make('synthetic-initial-credential');
+        Event::listen(Authenticated::class, static function (Authenticated $event) use (&$fixtureHash): void {
+            if ($event->guard === 'web') {
+                // Supply a fixture credential on the in-memory model only.
+                $event->user->setAttribute('password', $fixtureHash);
+            }
+        });
+
+        [$id] = $this->statefulLogin();
+        $this->getJson('/_stateful_lab/state', ['Origin' => 'http://localhost'])->assertOk()->assertJsonPath('sanctum', $this->userId);
+        $guard = Auth::guard('web');
+        self::assertSame($guard->hashPasswordForCookie($fixtureHash), $this->guardPayload($id)['password_hash_web']);
+
+        $fixtureHash = Hash::make('synthetic-rotated-credential');
+        $this->getJson('/_stateful_lab/protected', ['Origin' => 'http://localhost'])->assertUnauthorized();
+        self::assertArrayNotHasKey($guard->getName(), $this->guardPayload($id));
+        self::assertArrayNotHasKey('password_hash_web', $this->guardPayload($id));
+        $this->getJson('/_stateful_lab/protected', ['Origin' => 'http://localhost'])->assertUnauthorized();
+    }
+
+    private function identityState(string $id): array
+    {
+        $query = ['user_id' => $this->userId];
+        $transport = $this->lab->selectCollection('fenced_sessions')->findOne(['_id' => $id]);
+
+        return [
+            'account' => json_encode($this->securityDb->selectCollection('users')->findOne(['_id' => $this->userId]), JSON_THROW_ON_ERROR),
+            'grants' => json_encode($this->securityDb->selectCollection('role_grants')->find($query)->toArray(), JSON_THROW_ON_ERROR),
+            'sessionRecords' => json_encode($this->securityDb->selectCollection('user_sessions')->find($query)->toArray(), JSON_THROW_ON_ERROR),
+            // The fenced transport is allowed to update lease and revision bookkeeping.
+            'sessionPayload' => json_decode($transport['payload']->getData(), true, 512, JSON_THROW_ON_ERROR),
+            'sessionRevoked' => $transport['revoked'],
+        ];
     }
 
     private function statefulAnonymous(): array

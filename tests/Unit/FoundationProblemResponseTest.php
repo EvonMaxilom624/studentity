@@ -18,6 +18,19 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class FoundationProblemResponseTest extends TestCase
 {
+    public function test_contract_bad_request_and_conflict_preserve_status_without_reflection(): void
+    {
+        foreach ([400 => 'bad_request', 409 => 'conflict'] as $status => $code) {
+            $response = FoundationProblemResponse::render(new HttpException($status, 'synthetic-sensitive-record', null, ['X-Secret' => 'synthetic-sensitive', 'Retry-After' => '17']));
+            self::assertSame($status, $response->getStatusCode());
+            self::assertSame($code, $response->getData(true)['code']);
+            self::assertStringNotContainsString('synthetic-sensitive', $response->getContent());
+            self::assertFalse($response->headers->has('X-Secret'));
+            self::assertFalse($response->headers->has('Retry-After'));
+            self::assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        }
+    }
+
     public function test_security_state_unavailable_maps_to_503_problem(): void
     {
         $response = FoundationProblemResponse::render(new SecurityStateUnavailable('synthetic-dsn'));

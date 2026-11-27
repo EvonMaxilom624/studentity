@@ -93,9 +93,9 @@ final readonly class OperationalReadinessInspector
                 'Operational clock ownership/synchronization, accepted skew/deadline/lease policy and rollback detection across instances and providers.',
                 'Measured expiration, nonce freshness, monotonic observation and clock-rollback tests; local wall time or test clock alone is not accepted trust.',
             ]],
-            ['approved-notices', ['FND-05', 'G-05', 'G-09'], [
+            ['approved-notices', ['FND-05', 'G-04'], [
                 'Named institutional approvers and exact approved notice/terms content, hashes, versions, purposes and effective history.',
-                'Current independent approval confirmation for G-05 registration and G-09 coordinator invitations; pending/replayed/synthetic approval cannot admit real data.',
+                'Current independent approval confirmation for exact notices under SRS G-04 and the complete applicable institutional gate composition; pending/replayed/synthetic evidence cannot admit real data. Historical registration/invitation lab gate aliases are not institutional approval scopes.',
                 'Separate approved processing legal basis and consent requirements; acknowledgement is not automatic consent or academic verification.',
             ]],
             ['session-transport', ['FND-03', 'ADR-01', 'FR-ACT-020', 'FR-ACT-021'], [

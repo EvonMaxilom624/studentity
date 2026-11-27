@@ -27,7 +27,7 @@ final class FoundationProblemBoundaryTest extends TestCase
 
     public function test_router_caught_response_exception_and_direct_errors_are_normalized(): void
     {
-        foreach ([401, 403, 404, 419, 422, 429, 500, 503] as $status) {
+        foreach ([400, 401, 403, 404, 409, 419, 422, 429, 500, 503] as $status) {
             foreach (['direct', 'throw'] as $kind) {
                 Route::middleware(FoundationProblemBoundary::class)->get('/_fnd07_boundary/'.$kind.$status, function () use ($status, $kind) {
                     $response = response('synthetic-sensitive-body', $status, ['X-Secret' => 'synthetic-sensitive-header', 'Retry-After' => '17']);

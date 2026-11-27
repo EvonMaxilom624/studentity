@@ -21,7 +21,7 @@ final class FoundationProblemResponse
         $status = match (true) {
             $error instanceof SecurityStateUnavailable, $error instanceof FileSecurityUnavailable => 503,$error instanceof TokenMismatchException => 419,$error instanceof AuthenticationException => 401,$error instanceof ValidationException => 422,$error instanceof HttpExceptionInterface => $error->getStatusCode(),default => 500
         };
-        $map = [401 => ['Authentication required', 'authentication_required'], 403 => ['Permission denied', 'permission_denied'], 404 => ['Not found', 'not_found'], 419 => ['CSRF validation failed', 'csrf_mismatch'], 422 => ['Validation failed', 'validation_failed'], 429 => ['Too many requests', 'throttled'], 503 => ['Security state unavailable', 'security_state_unavailable'], 500 => ['Internal server error', 'internal_error']];
+        $map = [400 => ['Malformed request', 'bad_request'], 409 => ['Conflict', 'conflict'], 401 => ['Authentication required', 'authentication_required'], 403 => ['Permission denied', 'permission_denied'], 404 => ['Not found', 'not_found'], 419 => ['CSRF validation failed', 'csrf_mismatch'], 422 => ['Validation failed', 'validation_failed'], 429 => ['Too many requests', 'throttled'], 503 => ['Security state unavailable', 'security_state_unavailable'], 500 => ['Internal server error', 'internal_error']];
         if (! isset($map[$status])) {
             $status = 500;
         }[$title,$code] = $map[$status];

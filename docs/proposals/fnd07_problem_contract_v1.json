@@ -1,13 +1,13 @@
 {
-  "status": "Unbound factory/test-only harness; runtime activation and OpenAPI correction approval remain pending",
+  "status": "Owner-authorized engineering derivative and unbound adapter implemented; institutional/operational acceptance and runtime activation remain pending",
   "basis": "Final immutable OpenAPI Problem schema; final SRS v1.1; accepted same-origin ADR-01",
   "proposed_deviations": [
-    "Explicit419 CSRF response using Problem shape",
-    "503 uncertain dependency/security state; avoid raw error details",
-    "Registration department/year missing in source DTO despite FR-ID-001; resolve approved schema before endpoint",
-    "Staff SelfUser systemId must not be universally required",
-    "Login/logout200 schema response before real endpoint activation; existing204 lab harnesses are historical proofs"
+    "Engineering derivative now specifies departmentId/integer yearLevel, exact classifications, nullable SystemID, cookie-only security,419 and safe400/409; original remains unchanged",
+    "Login/logout200 preserved from source; previous204 labs historical",
+    "Exact notice/issuer/session authority and institutional acceptance are not inferred"
   ],
   "safety": "Fresh server correlationUUID; fixed codes/titles; no raw messages/validation fields; retry header only nonnegative integer; no global renderer or new business route",
-  "CI": "Local input hashes are deterministic but unsigned/nondeployable; secure CI/signed artifacts/deployment approval and institutional M0 signoff still pending"
+  "CI": "Local input hashes are deterministic but unsigned/nondeployable; secure CI/signed artifacts/deployment approval and institutional M0 signoff still pending",
+  "engineering_contract": "resources/contracts/identity-v1.openapi.json",
+  "engineering_decision": "Owner authorized tasks2/3 on23November2026; wire corrections implemented; original source OpenAPI immutable; operational acceptance/binding remain pending"
 }
